@@ -25,11 +25,11 @@ octocaptcha.com:HSTS	0	18273	1610371984527,1,1,2
 mail.google.com:HSTS	0	18273	1589723465990,1,1,2
 refpa.top:HSTS	0	18273	1594614527398,1,0,2
 ev.surveywall-api.survata.com:HSTS	0	18273	1594561224479,1,1,2
-avatars1.githubusercontent.com:HSTS	0	18273	1610415808497,1,0,2
-api.github.com:HSTS	1	18273	1610394131227,1,1,2
-github.com:HSTS	0	18273	1610394160751,1,1,2
+avatars1.githubusercontent.com:HSTS	0	18273	1610416238478,1,0,2
+api.github.com:HSTS	1	18273	1610394639622,1,1,2
+github.com:HSTS	0	18273	1610394639347,1,1,2
 duckduckgo.com:HSTS	0	18273	1610372478477,1,0,2
-incoming.telemetry.mozilla.org:HSTS	1	18273	1594623523107,1,0,2
+incoming.telemetry.mozilla.org:HSTS	1	18273	1594626526905,1,0,2
 ajax.cloudflare.com:HSTS	0	18273	1594616477359,1,1,2
 status.discordapp.com:HSTS	0	18273	1579101721051,1,0,2
 vscode-update.azurewebsites.net:HSTS	0	18272	1610296540381,1,0,2
@@ -49,7 +49,7 @@ blocklists.settings.services.mozilla.com:HSTS	0	18273	1610370066340,1,0,2
 www.bitmex.com:HSTS	0	18273	1610382315939,1,1,2
 www.google.com:HSTS	1	18273	1610382205867,1,0,2
 staticxx.facebook.com:HSTS	0	18273	1594398277794,1,0,2
-collector.githubapp.com:HSTS	0	18273	1610394160605,1,0,2
+collector.githubapp.com:HSTS	0	18273	1610394639460,1,0,2
 discordapp.com:HSTS	0	18273	1610378728379,1,1,2
 www.google.com^firstPartyDomain=google.search.suggestions.mozilla:HSTS	1	18273	1610374143389,1,0,2
 1xredynbsj.world:HSTS	0	18273	1594614527537,1,0,2

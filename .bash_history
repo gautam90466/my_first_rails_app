@@ -87,3 +87,12 @@ git add.
 git commit -m "initial commit"
 git remote add origin git@github.com:gautam90466/my_first_rails_app.git
 git push -u origin master
+pwd
+pwd /home/you/odin_on_rails/my_first_rails_app
+git init
+git add
+git add .
+git commit -m "initial commit"
+git remote add origin git@github.com:gautam90466/my_first_rails_app.git
+push -u origin master
+mkdir odin_on_rails
