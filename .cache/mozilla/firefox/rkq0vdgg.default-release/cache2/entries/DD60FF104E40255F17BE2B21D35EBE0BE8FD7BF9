@@ -1,0 +1,1287 @@
+(function() {
+  var context = this;
+
+  (function() {
+    (function() {
+      var slice = [].slice;
+
+      this.ActionCable = {
+        INTERNAL: {
+          "message_types": {
+            "welcome": "welcome",
+            "ping": "ping",
+            "confirmation": "confirm_subscription",
+            "rejection": "reject_subscription"
+          },
+          "default_mount_path": "/cable",
+          "protocols": ["actioncable-v1-json", "actioncable-unsupported"]
+        },
+        WebSocket: window.WebSocket,
+        logger: window.console,
+        createConsumer: function(url) {
+          var ref;
+          if (url == null) {
+            url = (ref = this.getConfig("url")) != null ? ref : this.INTERNAL.default_mount_path;
+          }
+          return new ActionCable.Consumer(this.createWebSocketURL(url));
+        },
+        getConfig: function(name) {
+          var element;
+          element = document.head.querySelector("meta[name='action-cable-" + name + "']");
+          return element != null ? element.getAttribute("content") : void 0;
+        },
+        createWebSocketURL: function(url) {
+          var a;
+          if (url && !/^wss?:/i.test(url)) {
+            a = document.createElement("a");
+            a.href = url;
+            a.href = a.href;
+            a.protocol = a.protocol.replace("http", "ws");
+            return a.href;
+          } else {
+            return url;
+          }
+        },
+        startDebugging: function() {
+          return this.debugging = true;
+        },
+        stopDebugging: function() {
+          return this.debugging = null;
+        },
+        log: function() {
+          var messages, ref;
+          messages = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+          if (this.debugging) {
+            messages.push(Date.now());
+            return (ref = this.logger).log.apply(ref, ["[ActionCable]"].concat(slice.call(messages)));
+          }
+        }
+      };
+
+    }).call(this);
+  }).call(context);
+
+  var ActionCable = context.ActionCable;
+
+  (function() {
+    (function() {
+      var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+      ActionCable.ConnectionMonitor = (function() {
+        var clamp, now, secondsSince;
+
+        ConnectionMonitor.pollInterval = {
+          min: 3,
+          max: 30
+        };
+
+        ConnectionMonitor.staleThreshold = 6;
+
+        function ConnectionMonitor(connection) {
+          this.connection = connection;
+          this.visibilityDidChange = bind(this.visibilityDidChange, this);
+          this.reconnectAttempts = 0;
+        }
+
+        ConnectionMonitor.prototype.start = function() {
+          if (!this.isRunning()) {
+            this.startedAt = now();
+            delete this.stoppedAt;
+            this.startPolling();
+            document.addEventListener("visibilitychange", this.visibilityDidChange);
+            return ActionCable.log("ConnectionMonitor started. pollInterval = " + (this.getPollInterval()) + " ms");
+          }
+        };
+
+        ConnectionMonitor.prototype.stop = function() {
+          if (this.isRunning()) {
+            this.stoppedAt = now();
+            this.stopPolling();
+            document.removeEventListener("visibilitychange", this.visibilityDidChange);
+            return ActionCable.log("ConnectionMonitor stopped");
+          }
+        };
+
+        ConnectionMonitor.prototype.isRunning = function() {
+          return (this.startedAt != null) && (this.stoppedAt == null);
+        };
+
+        ConnectionMonitor.prototype.recordPing = function() {
+          return this.pingedAt = now();
+        };
+
+        ConnectionMonitor.prototype.recordConnect = function() {
+          this.reconnectAttempts = 0;
+          this.recordPing();
+          delete this.disconnectedAt;
+          return ActionCable.log("ConnectionMonitor recorded connect");
+        };
+
+        ConnectionMonitor.prototype.recordDisconnect = function() {
+          this.disconnectedAt = now();
+          return ActionCable.log("ConnectionMonitor recorded disconnect");
+        };
+
+        ConnectionMonitor.prototype.startPolling = function() {
+          this.stopPolling();
+          return this.poll();
+        };
+
+        ConnectionMonitor.prototype.stopPolling = function() {
+          return clearTimeout(this.pollTimeout);
+        };
+
+        ConnectionMonitor.prototype.poll = function() {
+          return this.pollTimeout = setTimeout((function(_this) {
+            return function() {
+              _this.reconnectIfStale();
+              return _this.poll();
+            };
+          })(this), this.getPollInterval());
+        };
+
+        ConnectionMonitor.prototype.getPollInterval = function() {
+          var interval, max, min, ref;
+          ref = this.constructor.pollInterval, min = ref.min, max = ref.max;
+          interval = 5 * Math.log(this.reconnectAttempts + 1);
+          return Math.round(clamp(interval, min, max) * 1000);
+        };
+
+        ConnectionMonitor.prototype.reconnectIfStale = function() {
+          if (this.connectionIsStale()) {
+            ActionCable.log("ConnectionMonitor detected stale connection. reconnectAttempts = " + this.reconnectAttempts + ", pollInterval = " + (this.getPollInterval()) + " ms, time disconnected = " + (secondsSince(this.disconnectedAt)) + " s, stale threshold = " + this.constructor.staleThreshold + " s");
+            this.reconnectAttempts++;
+            if (this.disconnectedRecently()) {
+              return ActionCable.log("ConnectionMonitor skipping reopening recent disconnect");
+            } else {
+              ActionCable.log("ConnectionMonitor reopening");
+              return this.connection.reopen();
+            }
+          }
+        };
+
+        ConnectionMonitor.prototype.connectionIsStale = function() {
+          var ref;
+          return secondsSince((ref = this.pingedAt) != null ? ref : this.startedAt) > this.constructor.staleThreshold;
+        };
+
+        ConnectionMonitor.prototype.disconnectedRecently = function() {
+          return this.disconnectedAt && secondsSince(this.disconnectedAt) < this.constructor.staleThreshold;
+        };
+
+        ConnectionMonitor.prototype.visibilityDidChange = function() {
+          if (document.visibilityState === "visible") {
+            return setTimeout((function(_this) {
+              return function() {
+                if (_this.connectionIsStale() || !_this.connection.isOpen()) {
+                  ActionCable.log("ConnectionMonitor reopening stale connection on visibilitychange. visbilityState = " + document.visibilityState);
+                  return _this.connection.reopen();
+                }
+              };
+            })(this), 200);
+          }
+        };
+
+        now = function() {
+          return new Date().getTime();
+        };
+
+        secondsSince = function(time) {
+          return (now() - time) / 1000;
+        };
+
+        clamp = function(number, min, max) {
+          return Math.max(min, Math.min(max, number));
+        };
+
+        return ConnectionMonitor;
+
+      })();
+
+    }).call(this);
+    (function() {
+      var i, message_types, protocols, ref, supportedProtocols, unsupportedProtocol,
+        slice = [].slice,
+        bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+        indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+
+      ref = ActionCable.INTERNAL, message_types = ref.message_types, protocols = ref.protocols;
+
+      supportedProtocols = 2 <= protocols.length ? slice.call(protocols, 0, i = protocols.length - 1) : (i = 0, []), unsupportedProtocol = protocols[i++];
+
+      ActionCable.Connection = (function() {
+        Connection.reopenDelay = 500;
+
+        function Connection(consumer) {
+          this.consumer = consumer;
+          this.open = bind(this.open, this);
+          this.subscriptions = this.consumer.subscriptions;
+          this.monitor = new ActionCable.ConnectionMonitor(this);
+          this.disconnected = true;
+        }
+
+        Connection.prototype.send = function(data) {
+          if (this.isOpen()) {
+            this.webSocket.send(JSON.stringify(data));
+            return true;
+          } else {
+            return false;
+          }
+        };
+
+        Connection.prototype.open = function() {
+          if (this.isActive()) {
+            ActionCable.log("Attempted to open WebSocket, but existing socket is " + (this.getState()));
+            return false;
+          } else {
+            ActionCable.log("Opening WebSocket, current state is " + (this.getState()) + ", subprotocols: " + protocols);
+            if (this.webSocket != null) {
+              this.uninstallEventHandlers();
+            }
+            this.webSocket = new ActionCable.WebSocket(this.consumer.url, protocols);
+            this.installEventHandlers();
+            this.monitor.start();
+            return true;
+          }
+        };
+
+        Connection.prototype.close = function(arg) {
+          var allowReconnect, ref1;
+          allowReconnect = (arg != null ? arg : {
+            allowReconnect: true
+          }).allowReconnect;
+          if (!allowReconnect) {
+            this.monitor.stop();
+          }
+          if (this.isActive()) {
+            return (ref1 = this.webSocket) != null ? ref1.close() : void 0;
+          }
+        };
+
+        Connection.prototype.reopen = function() {
+          var error;
+          ActionCable.log("Reopening WebSocket, current state is " + (this.getState()));
+          if (this.isActive()) {
+            try {
+              return this.close();
+            } catch (error1) {
+              error = error1;
+              return ActionCable.log("Failed to reopen WebSocket", error);
+            } finally {
+              ActionCable.log("Reopening WebSocket in " + this.constructor.reopenDelay + "ms");
+              setTimeout(this.open, this.constructor.reopenDelay);
+            }
+          } else {
+            return this.open();
+          }
+        };
+
+        Connection.prototype.getProtocol = function() {
+          var ref1;
+          return (ref1 = this.webSocket) != null ? ref1.protocol : void 0;
+        };
+
+        Connection.prototype.isOpen = function() {
+          return this.isState("open");
+        };
+
+        Connection.prototype.isActive = function() {
+          return this.isState("open", "connecting");
+        };
+
+        Connection.prototype.isProtocolSupported = function() {
+          var ref1;
+          return ref1 = this.getProtocol(), indexOf.call(supportedProtocols, ref1) >= 0;
+        };
+
+        Connection.prototype.isState = function() {
+          var ref1, states;
+          states = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+          return ref1 = this.getState(), indexOf.call(states, ref1) >= 0;
+        };
+
+        Connection.prototype.getState = function() {
+          var ref1, state, value;
+          for (state in WebSocket) {
+            value = WebSocket[state];
+            if (value === ((ref1 = this.webSocket) != null ? ref1.readyState : void 0)) {
+              return state.toLowerCase();
+            }
+          }
+          return null;
+        };
+
+        Connection.prototype.installEventHandlers = function() {
+          var eventName, handler;
+          for (eventName in this.events) {
+            handler = this.events[eventName].bind(this);
+            this.webSocket["on" + eventName] = handler;
+          }
+        };
+
+        Connection.prototype.uninstallEventHandlers = function() {
+          var eventName;
+          for (eventName in this.events) {
+            this.webSocket["on" + eventName] = function() {};
+          }
+        };
+
+        Connection.prototype.events = {
+          message: function(event) {
+            var identifier, message, ref1, type;
+            if (!this.isProtocolSupported()) {
+              return;
+            }
+            ref1 = JSON.parse(event.data), identifier = ref1.identifier, message = ref1.message, type = ref1.type;
+            switch (type) {
+              case message_types.welcome:
+                this.monitor.recordConnect();
+                return this.subscriptions.reload();
+              case message_types.ping:
+                return this.monitor.recordPing();
+              case message_types.confirmation:
+                return this.subscriptions.notify(identifier, "connected");
+              case message_types.rejection:
+                return this.subscriptions.reject(identifier);
+              default:
+                return this.subscriptions.notify(identifier, "received", message);
+            }
+          },
+          open: function() {
+            ActionCable.log("WebSocket onopen event, using '" + (this.getProtocol()) + "' subprotocol");
+            this.disconnected = false;
+            if (!this.isProtocolSupported()) {
+              ActionCable.log("Protocol is unsupported. Stopping monitor and disconnecting.");
+              return this.close({
+                allowReconnect: false
+              });
+            }
+          },
+          close: function(event) {
+            ActionCable.log("WebSocket onclose event");
+            if (this.disconnected) {
+              return;
+            }
+            this.disconnected = true;
+            this.monitor.recordDisconnect();
+            return this.subscriptions.notifyAll("disconnected", {
+              willAttemptReconnect: this.monitor.isRunning()
+            });
+          },
+          error: function() {
+            return ActionCable.log("WebSocket onerror event");
+          }
+        };
+
+        return Connection;
+
+      })();
+
+    }).call(this);
+    (function() {
+      var slice = [].slice;
+
+      ActionCable.Subscriptions = (function() {
+        function Subscriptions(consumer) {
+          this.consumer = consumer;
+          this.subscriptions = [];
+        }
+
+        Subscriptions.prototype.create = function(channelName, mixin) {
+          var channel, params, subscription;
+          channel = channelName;
+          params = typeof channel === "object" ? channel : {
+            channel: channel
+          };
+          subscription = new ActionCable.Subscription(this.consumer, params, mixin);
+          return this.add(subscription);
+        };
+
+        Subscriptions.prototype.add = function(subscription) {
+          this.subscriptions.push(subscription);
+          this.consumer.ensureActiveConnection();
+          this.notify(subscription, "initialized");
+          this.sendCommand(subscription, "subscribe");
+          return subscription;
+        };
+
+        Subscriptions.prototype.remove = function(subscription) {
+          this.forget(subscription);
+          if (!this.findAll(subscription.identifier).length) {
+            this.sendCommand(subscription, "unsubscribe");
+          }
+          return subscription;
+        };
+
+        Subscriptions.prototype.reject = function(identifier) {
+          var i, len, ref, results, subscription;
+          ref = this.findAll(identifier);
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            subscription = ref[i];
+            this.forget(subscription);
+            this.notify(subscription, "rejected");
+            results.push(subscription);
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.forget = function(subscription) {
+          var s;
+          this.subscriptions = (function() {
+            var i, len, ref, results;
+            ref = this.subscriptions;
+            results = [];
+            for (i = 0, len = ref.length; i < len; i++) {
+              s = ref[i];
+              if (s !== subscription) {
+                results.push(s);
+              }
+            }
+            return results;
+          }).call(this);
+          return subscription;
+        };
+
+        Subscriptions.prototype.findAll = function(identifier) {
+          var i, len, ref, results, s;
+          ref = this.subscriptions;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            s = ref[i];
+            if (s.identifier === identifier) {
+              results.push(s);
+            }
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.reload = function() {
+          var i, len, ref, results, subscription;
+          ref = this.subscriptions;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            subscription = ref[i];
+            results.push(this.sendCommand(subscription, "subscribe"));
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.notifyAll = function() {
+          var args, callbackName, i, len, ref, results, subscription;
+          callbackName = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
+          ref = this.subscriptions;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            subscription = ref[i];
+            results.push(this.notify.apply(this, [subscription, callbackName].concat(slice.call(args))));
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.notify = function() {
+          var args, callbackName, i, len, results, subscription, subscriptions;
+          subscription = arguments[0], callbackName = arguments[1], args = 3 <= arguments.length ? slice.call(arguments, 2) : [];
+          if (typeof subscription === "string") {
+            subscriptions = this.findAll(subscription);
+          } else {
+            subscriptions = [subscription];
+          }
+          results = [];
+          for (i = 0, len = subscriptions.length; i < len; i++) {
+            subscription = subscriptions[i];
+            results.push(typeof subscription[callbackName] === "function" ? subscription[callbackName].apply(subscription, args) : void 0);
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.sendCommand = function(subscription, command) {
+          var identifier;
+          identifier = subscription.identifier;
+          return this.consumer.send({
+            command: command,
+            identifier: identifier
+          });
+        };
+
+        return Subscriptions;
+
+      })();
+
+    }).call(this);
+    (function() {
+      ActionCable.Subscription = (function() {
+        var extend;
+
+        function Subscription(consumer, params, mixin) {
+          this.consumer = consumer;
+          if (params == null) {
+            params = {};
+          }
+          this.identifier = JSON.stringify(params);
+          extend(this, mixin);
+        }
+
+        Subscription.prototype.perform = function(action, data) {
+          if (data == null) {
+            data = {};
+          }
+          data.action = action;
+          return this.send(data);
+        };
+
+        Subscription.prototype.send = function(data) {
+          return this.consumer.send({
+            command: "message",
+            identifier: this.identifier,
+            data: JSON.stringify(data)
+          });
+        };
+
+        Subscription.prototype.unsubscribe = function() {
+          return this.consumer.subscriptions.remove(this);
+        };
+
+        extend = function(object, properties) {
+          var key, value;
+          if (properties != null) {
+            for (key in properties) {
+              value = properties[key];
+              object[key] = value;
+            }
+          }
+          return object;
+        };
+
+        return Subscription;
+
+      })();
+
+    }).call(this);
+    (function() {
+      ActionCable.Consumer = (function() {
+        function Consumer(url) {
+          this.url = url;
+          this.subscriptions = new ActionCable.Subscriptions(this);
+          this.connection = new ActionCable.Connection(this);
+        }
+
+        Consumer.prototype.send = function(data) {
+          return this.connection.send(data);
+        };
+
+        Consumer.prototype.connect = function() {
+          return this.connection.open();
+        };
+
+        Consumer.prototype.disconnect = function() {
+          return this.connection.close({
+            allowReconnect: false
+          });
+        };
+
+        Consumer.prototype.ensureActiveConnection = function() {
+          if (!this.connection.isActive()) {
+            return this.connection.open();
+          }
+        };
+
+        return Consumer;
+
+      })();
+
+    }).call(this);
+  }).call(this);
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = ActionCable;
+  } else if (typeof define === "function" && define.amd) {
+    define(ActionCable);
+  }
+}).call(this);
+        20200107212822´      context   ActionCable   .this   slice   INTERNAL   WebSocket   logger   createConsumer   getConfig%   createWebSocketURL   startDebugging   stopDebugging   log   message_types%   default_mount_path   protocols   welcome	   ping   confirmation   rejection)   confirm_subscription'   reject_subscription   /cable'   actioncable-v1-json/   actioncable-unsupported   window   console	   call	   bind   fn   me=   ActionCable.ConnectionMonitor<   clamp   now   secondsSince#   ConnectionMonitor   min   maxC   ConnectionMonitor.prototype.startA   ConnectionMonitor.prototype.stopK   ConnectionMonitor.prototype.isRunningM   ConnectionMonitor.prototype.recordPingS   ConnectionMonitor.prototype.recordConnectY   ConnectionMonitor.prototype.recordDisconnectQ   ConnectionMonitor.prototype.startPollingO   ConnectionMonitor.prototype.stopPollingA   ConnectionMonitor.prototype.poll   _thisW   ConnectionMonitor.prototype.getPollIntervalY   ConnectionMonitor.prototype.reconnectIfStale[   ConnectionMonitor.prototype.connectionIsStalea   ConnectionMonitor.prototype.disconnectedRecently_   ConnectionMonitor.prototype.visibilityDidChange   pollInterval   staleThreshold   prototype   start	   stop   isRunning   recordPing   recordConnect!   recordDisconnect   startPolling   stopPolling	   poll   getPollInterval!   reconnectIfStale#   connectionIsStale)   disconnectedRecently'   visibilityDidChange   i   ref%   supportedProtocols'   unsupportedProtocol   indexOf   indexOf</   ActionCable.Connection<   Connection3   Connection.prototype.send3   Connection.prototype.open5   Connection.prototype.close7   Connection.prototype.reopenA   Connection.prototype.getProtocol7   Connection.prototype.isOpen;   Connection.prototype.isActiveQ   Connection.prototype.isProtocolSupported9   Connection.prototype.isState;   Connection.prototype.getStateS   Connection.prototype.installEventHandlersW   Connection.prototype.uninstallEventHandlers   message	   open   close   error   reopenDelay	   send   reopen   getProtocol   isOpen   isActive'   isProtocolSupported   isState   getState)   installEventHandlers-   uninstallEventHandlers   events   length5   ActionCable.Subscriptions<   Subscriptions=   Subscriptions.prototype.create7   Subscriptions.prototype.add=   Subscriptions.prototype.remove=   Subscriptions.prototype.reject=   Subscriptions.prototype.forget   subscription   s?   Subscriptions.prototype.findAll=   Subscriptions.prototype.reloadC   Subscriptions.prototype.notifyAll=   Subscriptions.prototype.notifyG   Subscriptions.prototype.sendCommand   create   add   remove   reject   forget   findAll   reload   notifyAll   notify   sendCommand3   ActionCable.Subscription<   extend   Subscription=   Subscription.prototype.perform7   Subscription.prototype.sendE   Subscription.prototype.unsubscribe   perform   unsubscribe+   ActionCable.Consumer<   Consumer/   Consumer.prototype.send5   Consumer.prototype.connect;   Consumer.prototype.disconnectS   Consumer.prototype.ensureActiveConnection   connect   disconnect-   ensureActiveConnection   module   object   exports   define   function   amd   url	   name   element   document	   head   querySelector1   meta[name='action-cable-   ']   getAttribute   content   a   ^wss?:	   test   createElement	   href   protocol   replace	   http   ws   subscriptions   connection   consumer   monitor   disconnected   bind/<#   reconnectAttempts                          ;P      ;P    ;P  (function() {
+  var context = this;
+
+  (function() {
+    (function() {
+      var slice = [].slice;
+
+      this.ActionCable = {
+        INTERNAL: {
+          "message_types": {
+            "welcome": "welcome",
+            "ping": "ping",
+            "confirmation": "confirm_subscription",
+            "rejection": "reject_subscription"
+          },
+          "default_mount_path": "/cable",
+          "protocols": ["actioncable-v1-json", "actioncable-unsupported"]
+        },
+        WebSocket: window.WebSocket,
+        logger: window.console,
+        createConsumer: function(url) {
+          var ref;
+          if (url == null) {
+            url = (ref = this.getConfig("url")) != null ? ref : this.INTERNAL.default_mount_path;
+          }
+          return new ActionCable.Consumer(this.createWebSocketURL(url));
+        },
+        getConfig: function(name) {
+          var element;
+          element = document.head.querySelector("meta[name='action-cable-" + name + "']");
+          return element != null ? element.getAttribute("content") : void 0;
+        },
+        createWebSocketURL: function(url) {
+          var a;
+          if (url && !/^wss?:/i.test(url)) {
+            a = document.createElement("a");
+            a.href = url;
+            a.href = a.href;
+            a.protocol = a.protocol.replace("http", "ws");
+            return a.href;
+          } else {
+            return url;
+          }
+        },
+        startDebugging: function() {
+          return this.debugging = true;
+        },
+        stopDebugging: function() {
+          return this.debugging = null;
+        },
+        log: function() {
+          var messages, ref;
+          messages = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+          if (this.debugging) {
+            messages.push(Date.now());
+            return (ref = this.logger).log.apply(ref, ["[ActionCable]"].concat(slice.call(messages)));
+          }
+        }
+      };
+
+    }).call(this);
+  }).call(context);
+
+  var ActionCable = context.ActionCable;
+
+  (function() {
+    (function() {
+      var bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+      ActionCable.ConnectionMonitor = (function() {
+        var clamp, now, secondsSince;
+
+        ConnectionMonitor.pollInterval = {
+          min: 3,
+          max: 30
+        };
+
+        ConnectionMonitor.staleThreshold = 6;
+
+        function ConnectionMonitor(connection) {
+          this.connection = connection;
+          this.visibilityDidChange = bind(this.visibilityDidChange, this);
+          this.reconnectAttempts = 0;
+        }
+
+        ConnectionMonitor.prototype.start = function() {
+          if (!this.isRunning()) {
+            this.startedAt = now();
+            delete this.stoppedAt;
+            this.startPolling();
+            document.addEventListener("visibilitychange", this.visibilityDidChange);
+            return ActionCable.log("ConnectionMonitor started. pollInterval = " + (this.getPollInterval()) + " ms");
+          }
+        };
+
+        ConnectionMonitor.prototype.stop = function() {
+          if (this.isRunning()) {
+            this.stoppedAt = now();
+            this.stopPolling();
+            document.removeEventListener("visibilitychange", this.visibilityDidChange);
+            return ActionCable.log("ConnectionMonitor stopped");
+          }
+        };
+
+        ConnectionMonitor.prototype.isRunning = function() {
+          return (this.startedAt != null) && (this.stoppedAt == null);
+        };
+
+        ConnectionMonitor.prototype.recordPing = function() {
+          return this.pingedAt = now();
+        };
+
+        ConnectionMonitor.prototype.recordConnect = function() {
+          this.reconnectAttempts = 0;
+          this.recordPing();
+          delete this.disconnectedAt;
+          return ActionCable.log("ConnectionMonitor recorded connect");
+        };
+
+        ConnectionMonitor.prototype.recordDisconnect = function() {
+          this.disconnectedAt = now();
+          return ActionCable.log("ConnectionMonitor recorded disconnect");
+        };
+
+        ConnectionMonitor.prototype.startPolling = function() {
+          this.stopPolling();
+          return this.poll();
+        };
+
+        ConnectionMonitor.prototype.stopPolling = function() {
+          return clearTimeout(this.pollTimeout);
+        };
+
+        ConnectionMonitor.prototype.poll = function() {
+          return this.pollTimeout = setTimeout((function(_this) {
+            return function() {
+              _this.reconnectIfStale();
+              return _this.poll();
+            };
+          })(this), this.getPollInterval());
+        };
+
+        ConnectionMonitor.prototype.getPollInterval = function() {
+          var interval, max, min, ref;
+          ref = this.constructor.pollInterval, min = ref.min, max = ref.max;
+          interval = 5 * Math.log(this.reconnectAttempts + 1);
+          return Math.round(clamp(interval, min, max) * 1000);
+        };
+
+        ConnectionMonitor.prototype.reconnectIfStale = function() {
+          if (this.connectionIsStale()) {
+            ActionCable.log("ConnectionMonitor detected stale connection. reconnectAttempts = " + this.reconnectAttempts + ", pollInterval = " + (this.getPollInterval()) + " ms, time disconnected = " + (secondsSince(this.disconnectedAt)) + " s, stale threshold = " + this.constructor.staleThreshold + " s");
+            this.reconnectAttempts++;
+            if (this.disconnectedRecently()) {
+              return ActionCable.log("ConnectionMonitor skipping reopening recent disconnect");
+            } else {
+              ActionCable.log("ConnectionMonitor reopening");
+              return this.connection.reopen();
+            }
+          }
+        };
+
+        ConnectionMonitor.prototype.connectionIsStale = function() {
+          var ref;
+          return secondsSince((ref = this.pingedAt) != null ? ref : this.startedAt) > this.constructor.staleThreshold;
+        };
+
+        ConnectionMonitor.prototype.disconnectedRecently = function() {
+          return this.disconnectedAt && secondsSince(this.disconnectedAt) < this.constructor.staleThreshold;
+        };
+
+        ConnectionMonitor.prototype.visibilityDidChange = function() {
+          if (document.visibilityState === "visible") {
+            return setTimeout((function(_this) {
+              return function() {
+                if (_this.connectionIsStale() || !_this.connection.isOpen()) {
+                  ActionCable.log("ConnectionMonitor reopening stale connection on visibilitychange. visbilityState = " + document.visibilityState);
+                  return _this.connection.reopen();
+                }
+              };
+            })(this), 200);
+          }
+        };
+
+        now = function() {
+          return new Date().getTime();
+        };
+
+        secondsSince = function(time) {
+          return (now() - time) / 1000;
+        };
+
+        clamp = function(number, min, max) {
+          return Math.max(min, Math.min(max, number));
+        };
+
+        return ConnectionMonitor;
+
+      })();
+
+    }).call(this);
+    (function() {
+      var i, message_types, protocols, ref, supportedProtocols, unsupportedProtocol,
+        slice = [].slice,
+        bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+        indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+
+      ref = ActionCable.INTERNAL, message_types = ref.message_types, protocols = ref.protocols;
+
+      supportedProtocols = 2 <= protocols.length ? slice.call(protocols, 0, i = protocols.length - 1) : (i = 0, []), unsupportedProtocol = protocols[i++];
+
+      ActionCable.Connection = (function() {
+        Connection.reopenDelay = 500;
+
+        function Connection(consumer) {
+          this.consumer = consumer;
+          this.open = bind(this.open, this);
+          this.subscriptions = this.consumer.subscriptions;
+          this.monitor = new ActionCable.ConnectionMonitor(this);
+          this.disconnected = true;
+        }
+
+        Connection.prototype.send = function(data) {
+          if (this.isOpen()) {
+            this.webSocket.send(JSON.stringify(data));
+            return true;
+          } else {
+            return false;
+          }
+        };
+
+        Connection.prototype.open = function() {
+          if (this.isActive()) {
+            ActionCable.log("Attempted to open WebSocket, but existing socket is " + (this.getState()));
+            return false;
+          } else {
+            ActionCable.log("Opening WebSocket, current state is " + (this.getState()) + ", subprotocols: " + protocols);
+            if (this.webSocket != null) {
+              this.uninstallEventHandlers();
+            }
+            this.webSocket = new ActionCable.WebSocket(this.consumer.url, protocols);
+            this.installEventHandlers();
+            this.monitor.start();
+            return true;
+          }
+        };
+
+        Connection.prototype.close = function(arg) {
+          var allowReconnect, ref1;
+          allowReconnect = (arg != null ? arg : {
+            allowReconnect: true
+          }).allowReconnect;
+          if (!allowReconnect) {
+            this.monitor.stop();
+          }
+          if (this.isActive()) {
+            return (ref1 = this.webSocket) != null ? ref1.close() : void 0;
+          }
+        };
+
+        Connection.prototype.reopen = function() {
+          var error;
+          ActionCable.log("Reopening WebSocket, current state is " + (this.getState()));
+          if (this.isActive()) {
+            try {
+              return this.close();
+            } catch (error1) {
+              error = error1;
+              return ActionCable.log("Failed to reopen WebSocket", error);
+            } finally {
+              ActionCable.log("Reopening WebSocket in " + this.constructor.reopenDelay + "ms");
+              setTimeout(this.open, this.constructor.reopenDelay);
+            }
+          } else {
+            return this.open();
+          }
+        };
+
+        Connection.prototype.getProtocol = function() {
+          var ref1;
+          return (ref1 = this.webSocket) != null ? ref1.protocol : void 0;
+        };
+
+        Connection.prototype.isOpen = function() {
+          return this.isState("open");
+        };
+
+        Connection.prototype.isActive = function() {
+          return this.isState("open", "connecting");
+        };
+
+        Connection.prototype.isProtocolSupported = function() {
+          var ref1;
+          return ref1 = this.getProtocol(), indexOf.call(supportedProtocols, ref1) >= 0;
+        };
+
+        Connection.prototype.isState = function() {
+          var ref1, states;
+          states = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+          return ref1 = this.getState(), indexOf.call(states, ref1) >= 0;
+        };
+
+        Connection.prototype.getState = function() {
+          var ref1, state, value;
+          for (state in WebSocket) {
+            value = WebSocket[state];
+            if (value === ((ref1 = this.webSocket) != null ? ref1.readyState : void 0)) {
+              return state.toLowerCase();
+            }
+          }
+          return null;
+        };
+
+        Connection.prototype.installEventHandlers = function() {
+          var eventName, handler;
+          for (eventName in this.events) {
+            handler = this.events[eventName].bind(this);
+            this.webSocket["on" + eventName] = handler;
+          }
+        };
+
+        Connection.prototype.uninstallEventHandlers = function() {
+          var eventName;
+          for (eventName in this.events) {
+            this.webSocket["on" + eventName] = function() {};
+          }
+        };
+
+        Connection.prototype.events = {
+          message: function(event) {
+            var identifier, message, ref1, type;
+            if (!this.isProtocolSupported()) {
+              return;
+            }
+            ref1 = JSON.parse(event.data), identifier = ref1.identifier, message = ref1.message, type = ref1.type;
+            switch (type) {
+              case message_types.welcome:
+                this.monitor.recordConnect();
+                return this.subscriptions.reload();
+              case message_types.ping:
+                return this.monitor.recordPing();
+              case message_types.confirmation:
+                return this.subscriptions.notify(identifier, "connected");
+              case message_types.rejection:
+                return this.subscriptions.reject(identifier);
+              default:
+                return this.subscriptions.notify(identifier, "received", message);
+            }
+          },
+          open: function() {
+            ActionCable.log("WebSocket onopen event, using '" + (this.getProtocol()) + "' subprotocol");
+            this.disconnected = false;
+            if (!this.isProtocolSupported()) {
+              ActionCable.log("Protocol is unsupported. Stopping monitor and disconnecting.");
+              return this.close({
+                allowReconnect: false
+              });
+            }
+          },
+          close: function(event) {
+            ActionCable.log("WebSocket onclose event");
+            if (this.disconnected) {
+              return;
+            }
+            this.disconnected = true;
+            this.monitor.recordDisconnect();
+            return this.subscriptions.notifyAll("disconnected", {
+              willAttemptReconnect: this.monitor.isRunning()
+            });
+          },
+          error: function() {
+            return ActionCable.log("WebSocket onerror event");
+          }
+        };
+
+        return Connection;
+
+      })();
+
+    }).call(this);
+    (function() {
+      var slice = [].slice;
+
+      ActionCable.Subscriptions = (function() {
+        function Subscriptions(consumer) {
+          this.consumer = consumer;
+          this.subscriptions = [];
+        }
+
+        Subscriptions.prototype.create = function(channelName, mixin) {
+          var channel, params, subscription;
+          channel = channelName;
+          params = typeof channel === "object" ? channel : {
+            channel: channel
+          };
+          subscription = new ActionCable.Subscription(this.consumer, params, mixin);
+          return this.add(subscription);
+        };
+
+        Subscriptions.prototype.add = function(subscription) {
+          this.subscriptions.push(subscription);
+          this.consumer.ensureActiveConnection();
+          this.notify(subscription, "initialized");
+          this.sendCommand(subscription, "subscribe");
+          return subscription;
+        };
+
+        Subscriptions.prototype.remove = function(subscription) {
+          this.forget(subscription);
+          if (!this.findAll(subscription.identifier).length) {
+            this.sendCommand(subscription, "unsubscribe");
+          }
+          return subscription;
+        };
+
+        Subscriptions.prototype.reject = function(identifier) {
+          var i, len, ref, results, subscription;
+          ref = this.findAll(identifier);
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            subscription = ref[i];
+            this.forget(subscription);
+            this.notify(subscription, "rejected");
+            results.push(subscription);
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.forget = function(subscription) {
+          var s;
+          this.subscriptions = (function() {
+            var i, len, ref, results;
+            ref = this.subscriptions;
+            results = [];
+            for (i = 0, len = ref.length; i < len; i++) {
+              s = ref[i];
+              if (s !== subscription) {
+                results.push(s);
+              }
+            }
+            return results;
+          }).call(this);
+          return subscription;
+        };
+
+        Subscriptions.prototype.findAll = function(identifier) {
+          var i, len, ref, results, s;
+          ref = this.subscriptions;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            s = ref[i];
+            if (s.identifier === identifier) {
+              results.push(s);
+            }
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.reload = function() {
+          var i, len, ref, results, subscription;
+          ref = this.subscriptions;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            subscription = ref[i];
+            results.push(this.sendCommand(subscription, "subscribe"));
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.notifyAll = function() {
+          var args, callbackName, i, len, ref, results, subscription;
+          callbackName = arguments[0], args = 2 <= arguments.length ? slice.call(arguments, 1) : [];
+          ref = this.subscriptions;
+          results = [];
+          for (i = 0, len = ref.length; i < len; i++) {
+            subscription = ref[i];
+            results.push(this.notify.apply(this, [subscription, callbackName].concat(slice.call(args))));
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.notify = function() {
+          var args, callbackName, i, len, results, subscription, subscriptions;
+          subscription = arguments[0], callbackName = arguments[1], args = 3 <= arguments.length ? slice.call(arguments, 2) : [];
+          if (typeof subscription === "string") {
+            subscriptions = this.findAll(subscription);
+          } else {
+            subscriptions = [subscription];
+          }
+          results = [];
+          for (i = 0, len = subscriptions.length; i < len; i++) {
+            subscription = subscriptions[i];
+            results.push(typeof subscription[callbackName] === "function" ? subscription[callbackName].apply(subscription, args) : void 0);
+          }
+          return results;
+        };
+
+        Subscriptions.prototype.sendCommand = function(subscription, command) {
+          var identifier;
+          identifier = subscription.identifier;
+          return this.consumer.send({
+            command: command,
+            identifier: identifier
+          });
+        };
+
+        return Subscriptions;
+
+      })();
+
+    }).call(this);
+    (function() {
+      ActionCable.Subscription = (function() {
+        var extend;
+
+        function Subscription(consumer, params, mixin) {
+          this.consumer = consumer;
+          if (params == null) {
+            params = {};
+          }
+          this.identifier = JSON.stringify(params);
+          extend(this, mixin);
+        }
+
+        Subscription.prototype.perform = function(action, data) {
+          if (data == null) {
+            data = {};
+          }
+          data.action = action;
+          return this.send(data);
+        };
+
+        Subscription.prototype.send = function(data) {
+          return this.consumer.send({
+            command: "message",
+            identifier: this.identifier,
+            data: JSON.stringify(data)
+          });
+        };
+
+        Subscription.prototype.unsubscribe = function() {
+          return this.consumer.subscriptions.remove(this);
+        };
+
+        extend = function(object, properties) {
+          var key, value;
+          if (properties != null) {
+            for (key in properties) {
+              value = properties[key];
+              object[key] = value;
+            }
+          }
+          return object;
+        };
+
+        return Subscription;
+
+      })();
+
+    }).call(this);
+    (function() {
+      ActionCable.Consumer = (function() {
+        function Consumer(url) {
+          this.url = url;
+          this.subscriptions = new ActionCable.Subscriptions(this);
+          this.connection = new ActionCable.Connection(this);
+        }
+
+        Consumer.prototype.send = function(data) {
+          return this.connection.send(data);
+        };
+
+        Consumer.prototype.connect = function() {
+          return this.connection.open();
+        };
+
+        Consumer.prototype.disconnect = function() {
+          return this.connection.close({
+            allowReconnect: false
+          });
+        };
+
+        Consumer.prototype.ensureActiveConnection = function() {
+          if (!this.connection.isActive()) {
+            return this.connection.open();
+          }
+        };
+
+        return Consumer;
+
+      })();
+
+    }).call(this);
+  }).call(this);
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = ActionCable;
+  } else if (typeof define === "function" && define.amd) {
+    define(ActionCable);
+  }
+}).call(this);
+  y   http://localhost:3000/assets/action_cable.self-69fddfcddf4fdef9828648f9330d6ce108b93b82b0b8d3affffc59a114853451.js?body=1   !«!€!«!ÿÿÿÿ            Œ!«!!«!       C       	                	   -P     -P       !«!Œ!«!ÿÿÿÿ                      Œ!«!!«!        C                       0   ¦  (   ¦       !«!Œ!«!ÿÿÿÿ                Œ!«!!«!        C                       B   •  :   •    
+   !«!Œ!«!ÿÿÿÿ                  Œ!«!!«!    	   !«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!	   ‹!«!!«!
+   ‹!«!!«!   ‹!«!!«!   ‹!«!    Œ!«!!«!       !«!   ‹!«!!«!   ‹!«!!«!   ‹!«!    Œ!«!!«!       !«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!   ‹!«!    Œ!«!!«!          C                     B  :  :  :   
+    !«!Œ!«!ÿÿÿÿ   š   G              š˜;ø      š         Œ   	   ‡   (                                	 ¹W  QT  @R   æ   V  ¸    
+=   : W   @   æ   V      æ   V  5   5   æ
+   U  Qæ
+   ˆ  5   AV  ¸   
+T  : ,  R ™VPHh`ÏPHh`ĞH`ıXH
+h`ÙH%`Oÿÿÿâ`SHa      ÿÿÿÿ   Ê5Œ!«!!«!          C                     W  (  O  (       !«!Œ!«!ÿÿÿÿ   ›   œ           š˜;ø         Ÿ       ¡   ¢   £   ^                                     š    5   ¸   
+=   T  =   : W   QV   @"   æ
+   V   ¸   
+=   :    æ   >(æ   ™PPH
+h`àH`ÈPH
+h`àH!`ÍHWHa      ÿÿÿÿ   Ê5Œ!«!!«!       	   C !   $                 N    F         !«!Œ!«!ÿÿÿÿ   š   ¤           Œ!«!Œ!«!¥   š˜;ø	   ¦      §   ¤   ¨   ©   ª   «   ¬   ®   I                                 
+ T  E   æ   Q    ¸    
+T  :  æ   y   æ   š   ¸   
+=   : W   QV   T  6   QV   V   5   6   QV   V   5   ¸   
+=   =   : 6   QV   5      æ   T  æ   ™PPHh`ÎHÏH`ÓPHh`ÑH`ÈPHh`ÍPHh`ÓPHh`ŞH`ÉPHh`ÉX,HËX)PHh`[,Hf        ÿÿÿÿ   Ê5Œ!«!!«!    	   
+   B  °  æ  ¨  æ  -          ÿÿÿÿ       Ê5Œ!«!!«!    	      B    =  ÿ  =  0         ÿÿÿÿ       Ê5Œ!«!!«!    	      B  T  …  L  …  3        ÿÿÿÿ       Ê5š˜;ø                                                               	   
+            ä   _                                  ¹W   QZ    5    ‰   QV   [   [   [   =   ]   =   ]   =   ]   =   ]   ]   =   ]	   Z   =
+   `    =   `   ]   ]   š   5   ]   š   5   ]   ‚   ]   ‚   ]   ‚   ]   ‚   ]   ‚   ]   ‚	   ]   6   Q™VHh`ĞXHh`ÉPHUH
+UHÊPHÊPHÊPHÏXH
+ÊPH
+MÊHÔXHÏPHÏPHÊXHÊX!HÊX-HÊX0HÊX3HĞX=H`   Ê5š˜;ø                                           ¹W   Q‚   ¸    
+V   l Q™VHh`ÌX=L`TH` Ê5Œ!«!!«!        C    B                   í  mO  å  mO       !«!Œ!«!ÿÿÿÿ                Œ!«!!«!        C    C                     ÿ  o  ÷  o       !«!Œ!«!ÿÿÿÿ                Œ!«!!«!          C  D                       ^    ^       !«!Œ!«!ÿÿÿÿ                 Œ!«!!«!    	   ²   b  6  [  .  [  D   2      ÿÿÿÿ       Ê5š˜;ø                                           ‚   ™H#h`M6a Ê5Œ!«!!«!          c    F   /                   d  ˆ  d       !«!Œ!«!ÿÿÿÿ       !   "   #            Œ!«!!«!       #     P   "                h	  
+  N	  
+   
+    !«!Œ!«!ÿÿÿÿ   ®              š˜;ø   ®   E   ³   ?                                    ¹W   QV   T  6    QV   ˆ  V   5   V   : 6   QV   >6   Q™VH
+h`ÍPH
+h`×H`ÉPH
+h`ËPH`     ÿÿÿÿ   Ê5Œ!«!!«!       !«!$   ‹!«!!«!%   ‹!«!    Œ!«!!«!    	   &   b  O
+  ¾  G
+  ¾  V   4      ÿÿÿÿ       Ê5Œ!«!!«!    	   '   b  ô    ì    `   3      ÿÿÿÿ       Ê5Œ!«!!«!    	   (   b  H    @    i   8      ÿÿÿÿ       Ê5Œ!«!!«!    	   )   b  Ù    Ñ    m   9      ÿÿÿÿ       Ê5Œ!«!!«!    	   *   b  N    F    q   <      ÿÿÿÿ       Ê5Œ!«!!«!    	   +   b  O  Ï  G  Ï  x   ?      ÿÿÿÿ       Ê5Œ!«!!«!    	   ,   b    W    W  }   ;      ÿÿÿÿ       Ê5Œ!«!!«!    	   -   b  ”  Ó  Œ  Ó  ‚   :      ÿÿÿÿ       Ê5Œ!«!!«!    	   .   b  	          †   3      ÿÿÿÿ         B F  Õ  >  Õ  ‡   8      ÿÿÿÿ       /      B  k  È  c  È  ˆ          ÿÿÿÿ       Ê5Ê5Ê5Œ!«!!«!    	   0   b  A  A  9  A     >      ÿÿÿÿ       Ê5Œ!«!!«!    	   1   b  ƒ  @  {  @  –   ?      ÿÿÿÿ       Ê5Œ!«!!«!    	   2   b  ƒ    {    £   @      ÿÿÿÿ       Ê5Œ!«!!«!    	   3   b  a  Ü  Y  Ü  ¨   C      ÿÿÿÿ       Ê5Œ!«!!«!    	   4   b  !        ¬   B      ÿÿÿÿ         B …  ù  }  ù  ®   '      ÿÿÿÿ       /      B  ¬  ê  ¤  ê  ¯          ÿÿÿÿ       Ê5Ê5Ê5Œ!«!!«!    	   !   B  6  k  .  k  ¹          ÿÿÿÿ       Ê5Œ!«!!«!    	   "   B   Ç  …  Ç  ½          ÿÿÿÿ       Ê5Œ!«!!«!    	       B â  7  Ú  7  Á          ÿÿÿÿ       Ê5š˜;ø   $   %   5   6   7   8   9   :   ;   <   =   >   ?   @   A   B   C   D   E   r  ¹                             "      ‚   W   QV   [   ×]    ×]   6   QV   ×6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6	   QV   5   ‚   6
+   QV   5   ‚	   6   QV   5   ‚
+   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   Q‚   ‰   Q‚   ‰   Q‚   ‰   QV   ™ÊPXIHh`ÉPH
+WH
+ÍXNHh`ÌXVHh`ÔX`Hh`ÔXiHh`ÔXmHh`ÔXqHh`ÔXxHh`ÔX}Hh`ÔX€  ‚Hh`ÔPPPPHh`ÔX€  Hh`ÔX€  –Hh`ÔX€  £Hh`ÔX€  ¨Hh`ÔPPPPHh`ÔX€  ¹Hh`ËPPPPHh`ËPPPPHh`ËPPPPHh`TPHa    Ê5š˜;ø   #                                           ‚   ‰   Qˆ  ‚   :  6    Q™PHh`ËXFHh`ËX€  ÇH`ÉPPH`    Ê5Œ!«!!«!        C    Ê             	       Š  15  ‚  15       !«!Œ!«!ÿÿÿÿ	   F         G   H   I         J            Œ!«!!«!          C  Í                       V    V       !«!Œ!«!ÿÿÿÿ                 Œ!«!!«!    	   ²   b  .  S  &  S  Í   0      ÿÿÿÿ       Ê5š˜;ø                                           ‚   ™H!h`M6a Ê5Œ!«!!«!    	   K   b €  ó  x  ó  Î   (      ÿÿÿÿ       Ê5Œ!«!!«!       L   c    Ô   (                   &5    &5       !«!Œ!«!ÿÿÿÿ   M             Œ!«!!«!       M     ×                   b  k  O  k   
+    !«!Œ!«!ÿÿÿÿ   ¯              š˜;ø   ¯   [   ­   #   °   ±   w   ,                                 ¹W   QV   T  6    QV   ˆ   V   5   V   : 6   QV   V   5    5   6   QV   ˆ  5   AV   ,  R 6   QV   C6   Q™VH
+h`ÍPH
+h`×H`ÉPH
+h`ØPH
+h`×H`ÉPH
+h`ËPH`     ÿÿÿÿ   Ê5Œ!«!!«!    	   N   b ™  S   ‘  S   ß   ,      ÿÿÿÿ       Ê5Œ!«!!«!    	   O   b  ‚   ì"  z   ì"  è   ,      ÿÿÿÿ       Ê5Œ!«!!«!    	   P   b #  ˆ$  #  ˆ$  ø   -      ÿÿÿÿ       Ê5Œ!«!!«!    	   Q   b  ¹$  '  ±$  '    .      ÿÿÿÿ       Ê5Œ!«!!«!    	   R   b  Q'  ¾'  I'  ¾'    3      ÿÿÿÿ       Ê5Œ!«!!«!    	   S   b  ï'  $(  ç'  $(    .      ÿÿÿÿ       Ê5Œ!«!!«!    	   T   b  W(  š(  O(  š(     0      ÿÿÿÿ       Ê5Œ!«!!«!    	   U   b  Ø(  S)  Ğ(  S)  $  ;      ÿÿÿÿ       Ê5Œ!«!!«!    	   V   b  …)  C*  })  C*  )  /     ÿÿÿÿ       Ê5Œ!«!!«!    	   W   b  v*  ¦+  n*  ¦+  /  0      ÿÿÿÿ       Ê5Œ!«!!«!    	   X   b  å+  ½,  İ+  ½,  :  <      ÿÿÿÿ       Ê5Œ!«!!«!    	   Y   b  ş,  š-  ö,  š-  B  >      ÿÿÿÿ         B  ~-  ƒ-  v-  ƒ-  E  7       ÿÿÿÿ       Ê5Ê5Œ!«!!«!       !«!Z   ‹!«!!«![   ‹!«!!«!\   ‹!«!!«!]   ‹!«!    Œ!«!!«!    	   Z   B à-  I1  Ø-  I1  J        ÿÿÿÿ       Ê5Œ!«!!«!    	   [   B  c1  ù2  [1  ù2  ^        ÿÿÿÿ       Ê5Œ!«!!«!    	   \   B 3  Œ4  3  Œ4  h        ÿÿÿÿ       Ê5Œ!«!!«!    	   ]   B  §4  ö4  Ÿ4  ö4  s         ÿÿÿÿ       Ê5š˜;ø   ^   7   _   [   \   `   a   b   c   d   e   f   g   h   Z   ]   i   I  ²                             !      ‚   W   QV   Xô6    QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚	   6	   QV   5   ‚
+   6
+   QV   5   ‚   6   QV   5   ‚   6   QV   5   ‚   6   QV   5   [   ‚   ]   ‚   ]   ‚   ]   ‚   ]   6   QV   ™ÊPHh`ÍX€  ßHh`ÔX€  èHh`ÔX€  øHh`ÔX€ Hh`ÔX€ Hh`ÔX€ Hh`ÔPPPPHh`ÔPPPPHh`ÔX€ )Hh`ÔX€ /Hh`ÔX€ :Hh`ÔX€ BHh`ÔX€ IHh`ÎPH
+ÊX€ ^H
+ÊX€ hH
+ÊX€ sH
+ĞX€ xHh`TPHa Ê5š˜;ø      J            j      M   õ   J                      	             Z    5    ‰   Q‚   ‰   QZ    5   D   æ   Q‚   æ   ‰   Qˆ  5   W  QV  5   ‰   QV  5   ‰   Q×ˆ   Ù   4   æ   ˆ   ¸   
+ˆ   >ˆ   Ù   ?W   l    æ   >W   QZ    æ   ‰   Qˆ   V   ìêW   Q7W  Qˆ  ‚   :  6   Q™PPHh`ĞPHh`ËPHh`åPPHh`ÏHÏH#ÏPPHh`ùH3`ÍH0NĞH×PPHh`ËX€ zH`ÉPPH`  Ê5Œ!«!!«!        C    }                    L5  G  D5  G       !«!Œ!«!ÿÿÿÿ                Œ!«!!«!       k   c    €  +                 ™5  
+G  ‘5  
+G       !«!Œ!«!ÿÿÿÿ   l             Œ!«!!«!       l                       ¼5  6  ¦5  6   
+    !«!Œ!«!ÿÿÿÿ   ¯              š˜;ø   ¯   ­   #                                     ¹W   QV   T  6    QV   Z    6   Q™VH
+h`ÍPH
+h`ÏPH`       ÿÿÿÿ   Ê5Œ!«!!«!    	   m   b L6  Ÿ7  D6  Ÿ7  †  1      ÿÿÿÿ       Ê5Œ!«!!«!    	   n   b Ğ7  ×8  È7  ×8    .      ÿÿÿÿ       Ê5Œ!«!!«!    	   o   b 9  ï9  9  ï9  ˜  1      ÿÿÿÿ       Ê5Œ!«!!«!    	   p   b #:  ²;  :  ²;     1      ÿÿÿÿ       Ê5Œ!«!!«!    	   q   b æ;  ³=  Ş;  ³=  ­  1      ÿÿÿÿ       r    s      B  0<  }=  (<  }=  ¯  (      ÿÿÿÿ       Ê5Ê5Œ!«!!«!    	   t   b è=  5?  à=  5?  ¾  2      ÿÿÿÿ       Ê5Œ!«!!«!    	   u   b  i?  ­@  a?  ­@  Ë  1      ÿÿÿÿ       Ê5Œ!«!!«!    	   v   b  ä@  ÄB  Ü@  ÄB  Ö  4     ÿÿÿÿ       Ê5Œ!«!!«!    	   w   b  øB  ÆE  ğB  ÆE  â  1     ÿÿÿÿ       Ê5Œ!«!!«!    	   x   b ÿE  áF  ÷E  áF  ò  6      ÿÿÿÿ       Ê5š˜;ø   7   y   z   {   |   }   ~      €      ‚   Ø   w                                  
+ ‚   W   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚	   6   QV   5    ‚
+   6	   QV   5    ‚   6
+   QV   ™ÊX€ †Hh`ÔX€ Hh`ÔX€ ˜Hh`ÔX€  Hh`ÔX€ ­Hh`ÔX€ ¾Hh`ÔX€ ËHh`ÔX€ ÖHh`ÔX€ âHh`ÔX€ òHh`ÔX€ ûHh`TPHa    Ê5š˜;ø      l   %                                       Z    5    ‰   Qˆ  ‚   :  6   Q™PHh`ĞPPHh`ËX€ ıH`ÉPPH`   Ê5Œ!«!!«!        C                         0G  ÿK  (G  ÿK       !«!Œ!«!ÿÿÿÿ               Œ!«!!«!       ƒ   c      *                 _G  ôK  WG  ôK       !«!Œ!«!ÿÿÿÿ   „   …            Œ!«!!«!    	   …    –G  wH  G  wH          ÿÿÿÿ       Ê5Œ!«!!«!    	   †   b ªH  GI  ¢H  GI    1      ÿÿÿÿ       Ê5Œ!«!!«!    	   ‡   b xI  .J  pI  .J    .      ÿÿÿÿ       Ê5Œ!«!!«!    	   ˆ   b  fJ  ¯J  ^J  ¯J    5      ÿÿÿÿ       Ê5Œ!«!!«!    	   „   B ËJ  ÌK  ÃJ  ÌK  !         ÿÿÿÿ       Ê5š˜;ø   7   ‰   _   Š   W   8                                   ‚   W   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   Q‚   ‰   QV   ™ÊPX€ Hh`ÔX€ Hh`ÔX€ Hh`ÔPPPPHh`ËX€ ,Hh`TPHa Ê5š˜;ø   …                                          ˆ   ‚   :  6    Q™PHh`ËX€ .H`ÉPPH`  Ê5Œ!«!!«!        C    1                    L  \O  L  \O       !«!Œ!«!ÿÿÿÿ               Œ!«!!«!       ‹   c    2  &                 EL  QO  =L  QO       !«!Œ!«!ÿÿÿÿ   Œ             Œ!«!!«!       Œ     3                  cL  M  RL  M   
+    !«!Œ!«!ÿÿÿÿ   š              š˜;ø   š   l   ­   M   ®   T                                    ¹W   QV   T  6    QV   ˆ   5   AV   ,  R 6   QV   ˆ   5   AV   ,  R 6   Q™VH
+h`ÍPH
+h`×H`ÉPH
+h`×H`ÉPH`    ÿÿÿÿ   Ê5Œ!«!!«!    	      b <M  {M  4M  {M  9  *      ÿÿÿÿ       Ê5Œ!«!!«!    	      b  «M  âM  £M  âM  =  -      ÿÿÿÿ       Ê5Œ!«!!«!    	      b  N  |N  N  |N  A  0      ÿÿÿÿ       Ê5Œ!«!!«!    	      b  »N  -O  ³N  -O  G  <      ÿÿÿÿ       Ê5š˜;ø   7   _   ‘   ’   “   `   7                             	      ‚   W   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   5    ‚   6   QV   ™ÊX€ 9Hh`ÔPPPPHh`ÔPPPPHh`ÔX€ GHh`ÔX€ MHh`TPHa  Ê5š˜;ø   Œ                                          ˆ   ‚   :  6    Q™PHh`ËX€ OH`ÉPPH`  Ê5š˜;ø      k   L                                 
+ ¹W   Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q™VHh`ÌX€  ÉL`THh`ÌX€ |L`THh`ÌX€ ÿL`THh`ÌX€ 0L`THh`ÌX€ QL`TH`  Ê5š˜;ø         ”   •   –   —   ˜   ™   Ù   J                                  ¹W  QV  W   Q‚   ¸    
+V   l QV   5   ‰   Q‚   ¸    
+V  l Qš   '=   HE   æ
+   Qš   5   æ      æ   š   ˆ   6   QM   æ   š   '=   HE   æ   Qš   5   æ      æ   š      ˆ   ç Qæ   ™VHh`ÉXHh`ÌX>L`\@Hh`ÏXBHh`ÌX€ RL`TPHh`ğPHh`ÚPHh`ğPHh`ÏH`ÉPP`  Ê5š˜;ø                                             ‚   ¸    
+ºl Q™Hh`ÌX€ YI`T`  	›CØuæ      ^tP^tPA>“_ü§Ğ   z    :http://localhost:3000/assets/action_cable.self-69fddfcddf4fdef9828648f9330d6ce108b93b82b0b8d3affffc59a114853451.js?body=1 necko:classified 1 strongly-framed 1 request-method GET response-head HTTP/1.1 200 OK
+Content-Type: application/javascript
+ETag: "69fddfcddf4fdef9828648f9330d6ce108b93b82b0b8d3affffc59a114853451"
+Content-Length: 20539
+X-Request-Id: e91b031c-4b9c-4316-b386-4833d58ef38c
+X-Runtime: 0.040101
+Cache-Control: public, max-age=31536000
+ original-response-headers Content-Type: application/javascript
+Cache-Control: public, max-age=31536000
+ETag: "69fddfcddf4fdef9828648f9330d6ce108b93b82b0b8d3affffc59a114853451"
+X-Request-Id: 2978f696-07a1-4177-9a25-6eb423389bb9
+X-Runtime: 0.005319
+Content-Length: 20539
+ ctid 2 uncompressed-len 0 net-response-time-onstart 292 net-response-time-onstop 293 alt-data 1;20539,javascript/moz-bytecode-20200107212822 alt-data-from-child 1   ã9

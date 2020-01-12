@@ -1,0 +1,939 @@
+@import url(reset.css);
+
+body
+{
+
+font-family:Verdana, Arial, Helvetica, sans-serif;
+font-size:12px;
+color:#333;
+background-color:#000;
+
+}
+
+
+body a
+{
+text-decoration:none;
+color:#066;
+}
+
+
+#wrapper {
+width:1000px;
+margin:0 auto;
+}
+
+img {
+    border: 0px;
+    text-decoration: none;
+}
+
+div.clear {
+clear:both;
+}
+
+div.break {
+width:100%;
+height:5px;
+}
+
+.cl {
+    clear: both;
+    height: 1px;
+}
+
+#headerwrap,#contentwrap {
+width:1000px;
+margin:0 auto;
+}
+
+
+#contentwrapkat {
+width:530px;
+float:left;
+margin:0 auto;
+}
+
+#contentkat {
+background:#222;
+border-radius:10px;
+border:1px solid #000;
+padding-top:5px;
+margin:5px;
+}
+
+
+.header {
+    position: relative;
+    height: 75px;
+    background: #222;
+    border-radius: 10px;
+    border: 1px solid #000;
+    margin: 5px;
+}
+
+
+div.left {
+float:left;
+padding-left:3px;
+}
+
+
+div.left form {
+    vertical-align: top;
+    height: 75px;
+    margin-left: -10px;
+}
+
+div.right {
+float:right;
+padding-right:3px;
+width: 152px;
+}
+
+div.center {
+width:100%;
+text-align:center;
+padding-top: 8px;
+padding-bottom: 8px;
+}
+
+div.centerkat {
+width:100%!important;
+text-align:center!important;
+}
+
+.button {
+display:inline-block;
+line-height:1;
+text-decoration:none;
+font-weight:700;
+color:#fff;
+background-color:#39c;
+-moz-border-radius:5px;
+-webkit-border-radius:5px;
+-khtml-border-radius:5px;
+border-radius:5px;
+padding:7px 10px;
+}
+
+.button.olive {
+background-color:#7d26cd;
+}
+
+.button.green {
+background-color:#58aa00;
+}
+
+.button.orange {
+background-color:#e9ab17;
+}
+
+.button.dgreen {
+background-color:#0B3B0B;
+}
+
+.button.blue {
+background-color:#2c6da0;
+}
+
+.button.black {
+background-color:#111;
+}
+
+.button.white {
+background-color:#fff;
+color:#000;
+}
+
+.bitch {
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+select.button,input.button,button.button {
+border:0 none;
+}
+
+.button.large {
+font-size:125%;
+text-align:center;
+padding:8px 17px;
+}
+
+.greenhead {
+    width: 135px;
+    height: 55px;
+    position: absolute;
+    top: 0px;
+    right: 0px;
+}
+
+.clock {
+    font-size: 11px;
+    text-align: right;
+}
+
+.clocker {
+    font-size: 11px;
+    height: 16px;
+}
+
+.clockup {
+    margin-top: -20px;
+}
+
+
+/* ------------------------------------
+------------- MENU----------------
+------------------------------------ */
+#menuwrap{
+width:1000px;
+float:left;
+margin: 0px auto;
+margin-top: 5px;
+}
+
+#menu {
+background:url('/img/bg-menu.gif') repeat-x scroll 0 0 #343434;
+top:90px;
+border-radius:10px;
+margin:0 5px;
+}
+
+#menucontent {
+background:#222;
+border-radius:10px;
+margin:5px;
+margin-right: 10px;
+}
+
+#menu ul {
+height:29px;
+line-height:29px;
+width:1000px;
+padding-left:10px;}
+
+#menu li {
+border-left:1px solid #858585;
+border-right:1px solid #858585;
+display:block;
+float:left;
+height:100%;
+list-style:none outside none;
+}
+
+#menu li a {
+color:#FFF;
+display:block;
+float:left;
+font-weight:700;
+font-size:10px;
+height:100%;
+padding-left:8px;
+padding-right:10px;
+text-decoration:none;
+text-transform:uppercase;
+}
+
+.sport-icon {
+background:url('/img/icon-sprite.png') no-repeat scroll -1px -1px transparent;
+display:inline-block;
+height:20px;
+vertical-align:middle;
+width:20px;
+margin:0 3px 0 0;
+}
+
+.sport-icon.golf {
+background-position:-1px -358px;
+}
+
+.sport-icon.soccer {
+background-position:-1px -484px;
+}
+
+.sport-icon.hockey {
+background-position:-1px -400px;
+}
+
+.sport-icon.tennis {
+background-position:-1px -505px;
+}
+
+.sport-icon.basketball {
+background-position:-1px -169px;
+}
+
+.sport-icon.handball {
+background-position:-1px -379px;
+}
+
+.sport-icon.volleyball {
+background-position:-1px -547px;
+}
+
+.sport-icon.baseball {
+background-position:-1px -148px;
+}
+
+.sport-icon.american-football {
+background-position:-1px -43px;
+}
+
+.sport-icon.football {
+background-position:-1px -43px;
+}
+
+.sport-icon.rugby-union {
+background-position:-1px -463px;
+}
+
+.sport-icon.minority {
+background-position:-1px -22px;
+}
+
+.sport-icon.aussie-rules {
+background-position:-1px -64px;
+}
+
+.sport-icon.badminton {
+background-position:-1px -85px;
+}
+
+.sport-icon.bandy {
+background-position:-1px -127px;
+}
+
+.sport-icon.beach-volleyball {
+background-position:-1px -211px;
+}
+
+.sport-icon.boxing {
+background-position:-1px -232px;
+}
+
+.sport-icon.floorball {
+background-position:-1px -316px;
+}
+
+.sport-icon.futsal {
+background-position:-1px -337px;
+}
+
+.sport-icon.cricket {
+background-position:-1px -253px;
+}
+
+.sport-icon.mma {
+background-position:-1px -526px;
+}
+
+.sport-icon.beach-soccer {
+background-position:-1px -190px;
+}
+
+.sport-icon.field-hockey {
+background-position:-1px -295px;
+}
+
+.sport-icon.rugby-league {
+background-position:-1px -442px;
+}
+
+.sport-icon.snooker {
+background-position:-1px -106px;
+}
+
+.sport-icon.table-tennis {
+background-position:-1px -421px;
+}
+
+.sport-icon.darts {
+background-position:-1px -274px;
+}
+
+.sport-icon.water-polo {
+background-position:-1px -568px;
+}
+
+#menu li.soccer-active,#menu li.soccer:hover {
+background-color:#016700;
+background-position:0 -50px;
+}
+
+#menu li.tennis-active,#menu li.tennis:hover {
+background-color:#BF9A17;
+background-position:0 -150px;
+}
+
+#menu li.basketball-active,#menu li.basketball:hover {
+background-color:#680000;
+background-position:0 -200px;
+}
+
+#menu li.baseball-active,#menu li.baseball:hover {
+background-color:#006766;
+background-position:0 -250px;
+}
+
+#menu li.american-football-active,#menu li.american-football:hover {
+background-color:#8E6340;
+background-position:0 -300px;
+}
+
+#menu li.minority-active,#menu li.minority:hover {
+background-position:0 -100px;
+}
+
+.american-football #menu li.minority-active,.american-football #menu li.minority-active:hover {
+background-position:0 -300px;
+}
+
+#menu .minority .content a {
+text-transform:uppercase;
+}
+
+#menu ul#menumin {
+background:none repeat scroll 0 0 #858585;
+border-bottom:4px solid #00407D;
+box-shadow:0 2px 5px rgba(0,0,0,0.5);
+display:none;
+height:auto;
+position:absolute;
+left:698px;
+top:115px;
+width:337px;
+z-index:100;
+padding:0 0 1px;
+}
+
+.soccer #menu ul#menumin {
+border-bottom-color:#016700;
+}
+
+.hockey #menu ul#menumin {
+border-bottom-color:#00407D;
+}
+
+.tennis #menu ul#menumin {
+border-bottom-color:#BF9A17;
+}
+
+.basketball #menu ul#menumin {
+border-bottom-color:#680000;
+}
+
+.baseball #menu ul#menumin {
+border-bottom-color:#006766;
+}
+
+.american-football #menu ul#menumin {
+border-bottom-color:#8E6340;
+}
+
+#menu #menumin li {
+-moz-border-bottom-colors:none;
+-moz-border-left-colors:none;
+-moz-border-right-colors:none;
+-moz-border-top-colors:none;
+background:none repeat scroll 0 0 #373737;
+border-image:none;
+border-right:medium none;
+display:block;
+height:29px;
+width:168px;
+border-color:#858585 0 0;
+border-style:solid none none;
+border-width:1px medium medium;
+margin:0;
+}
+
+#menumin li.rt {
+float:right;
+margin:0 0 0 1px;
+}
+
+#menu #menumin li a {
+border:medium none;
+display:block;
+float:none;
+position:relative;
+}
+
+#menu .onecol ul#menumin {
+left:0;
+width:168px;
+}
+
+.onecol #menumin li {
+float:none;
+margin:0;
+}
+
+
+#menu li.hockey-active,#menu li.hockey:hover,#menu li.minority-active,#menu li.handball-active,#menu li.bandy-active,#menu li.rugby-union-active,#menu li.floorball-active,#menu li.futsall-active,#menu li.aussie-rules-active,#menu li.volleyball-active,#menu li.rugby-league-active,#menu li.cricket-active,#menu li.darts-active,#menu li.snooker-active,#menu li.boxing-active,#menu li.beach-volleyball-active,#menu li.badminton-active,#menu li.water-polo-active,#menu li.field-hockey-active,#menu li.table-tennis-active,#menu li.beach-soccer-active,#menu li.odds-active,#menu li.home-active,#menu li.minority:hover,#menu li.handball:hover,#menu li.bandy:hover,#menu li.rugby-union:hover,#menu li.floorball:hover,#menu li.futsall:hover,#menu li.aussie-rules:hover,#menu li.volleyball:hover,#menu li.rugby-league:hover,#menu li.cricket:hover,#menu li.darts:hover,#menu li.snooker:hover,#menu li.boxing:hover,#menu li.beach-volleyball:hover,#menu li.badminton:hover,#menu li.water-polo:hover,#menu li.field-hockey:hover,#menu li.table-tennis:hover,#menu li.beach-soccer:hover,#menu li.mma-active,#menu li.odds:hover,#menu li.home:hover {
+background-color:#00407D;
+background-position:0 -100px;
+}
+
+#menu .minority li a:hover,#menu #menumin li.active a {
+background-color:#00407D;
+}
+
+.american-football #menu .minority li a:hover,#menu #menumin li.american-football.active a {
+background-color:#80511A;
+}
+
+
+/* ------------------------------------
+------------- end of MENU ----------------
+------------------------------------ */
+
+
+
+
+/* ------------------------------------
+------------- HOMEMENU ----------------
+------------------------------------ */
+
+#content {
+background:#222;
+border-radius:10px;
+border:1px solid #000;
+margin:5px;
+}
+
+.hmenu.afl {
+background-position:0 0;
+width:48px;
+height:48px;
+}
+
+.hmenu.athletics {
+background-position:0 -68px;
+width:48px;
+height:48px;
+}
+
+.hmenu.badminton {
+background-position:0 -136px;
+width:48px;
+height:48px;
+}
+
+.hmenu.baseball {
+background-position:0 -204px;
+width:48px;
+height:48px;
+}
+
+.hmenu.basketball {
+background-position:0 -272px;
+width:48px;
+height:48px;
+}
+
+.hmenu.boxing {
+background-position:0 -340px;
+width:48px;
+height:48px;
+}
+
+.hmenu.cricket {
+background-position:0 -408px;
+width:48px;
+height:48px;
+}
+
+.hmenu.cycling {
+background-position:0 -476px;
+width:48px;
+height:48px;
+}
+
+.hmenu.darts {
+background-position:0 -544px;
+width:48px;
+height:48px;
+}
+
+.hmenu.formula_1 {
+background-position:0 -612px;
+width:48px;
+height:48px;
+}
+
+.hmenu.gaelic {
+background-position:0 -680px;
+width:48px;
+height:48px;
+}
+
+.hmenu.golf {
+background-position:0 -748px;
+width:48px;
+height:48px;
+}
+
+.hmenu.handball {
+background-position:0 -816px;
+width:48px;
+height:48px;
+}
+
+.hmenu.horse_racing {
+background-position:0 -884px;
+width:48px;
+height:48px;
+}
+
+.hmenu.ice_hockey {
+background-position:0 -952px;
+width:48px;
+height:48px;
+}
+
+.hmenu.moto_gp {
+background-position:0 -1020px;
+width:48px;
+height:48px;
+}
+
+.hmenu.motorsports {
+background-position:0 -1088px;
+width:48px;
+height:48px;
+}
+
+.hmenu.nascar {
+background-position:0 -1156px;
+width:48px;
+height:48px;
+}
+
+.hmenu.nfl {
+background-position:0 -1224px;
+width:48px;
+height:48px;
+}
+
+.hmenu.nine_balls {
+background-position:0 -1292px;
+width:48px;
+height:48px;
+}
+
+.hmenu.others {
+background-position:0 -1360px;
+width:48px;
+height:48px;
+}
+
+.hmenu.rugby {
+background-position:0 -1428px;
+width:48px;
+height:48px;
+}
+
+.hmenu.soccer {
+background-position:0 -1496px;
+width:48px;
+height:48px;
+}
+
+.hmenu.table_tennis {
+background-position:0 -1564px;
+width:48px;
+height:48px;
+}
+
+.hmenu.tennis {
+background-position:0 -1632px;
+width:48px;
+height:48px;
+}
+
+.hmenu.tv_box {
+background-position:0 -1700px;
+width:48px;
+height:48px;
+}
+
+.hmenu.tv_shows {
+background-position:0 -1768px;
+width:48px;
+height:48px;
+}
+
+.hmenu.ufc {
+background-position:0 -1836px;
+width:48px;
+height:48px;
+}
+
+.hmenu.volleyball {
+background-position:0 -1904px;
+width:48px;
+height:48px;
+}
+
+.hmenu.water_sport {
+background-position:0 -1972px;
+width:48px;
+height:48px;
+}
+
+.hmenu.whistle {
+background-position:-68px 0;
+width:48px;
+height:48px;
+}
+
+.hmenu.winter_sport {
+background-position:-68px -68px;
+width:48px;
+height:48px;
+}
+
+.hmenu.wwe {
+background-position:-68px -136px;
+width:48px;
+height:48px;
+}
+
+.hmenu {
+background:url('/img/csg-516000ba278b4.png');
+}
+
+.hmenu_link,.tmenu {
+text-transform:capitalize;
+width:92px;
+text-align:center;
+font-size:12px;
+line-height:14px;
+}
+
+.hmenu_img {
+width:100%;
+padding-left:20px;
+}
+
+.hmenu_link:hover {
+background-color:#000;
+color:#fff;
+}
+
+table.menuTable {
+border-spacing:10px;
+border-collapse:separate;
+}
+
+table.menuTable td {
+vertical-align:top;
+}
+
+div.ads {
+width:95%;
+padding-top:5px;
+padding-bottom:5px;
+text-align:center;
+}
+
+/* ------------------------------------
+------------- end of HOMEMENU----------------
+------------------------------------ */
+
+.linkbar {
+    width:100%;
+    height:15px!important;
+    padding-bottom:5px!important;
+}
+.linkGroup {
+    width:100%;
+    padding:5px!important;
+}
+.linkRow {
+    width:100%;
+    padding-top:2px!important;
+    padding-bottom:2px!important;
+    color:#d0d0d0!important;
+}
+.gameLinks a {
+    color:#e6be7c!important;
+    text-decoration:none;
+}
+.gameLinks a:hover {
+    color:#7FFF00!important;
+    text-decoration:underline;
+}
+img {
+    vertical-align:top;
+    border:0;
+}
+.playerImage {
+    float:left;
+    width:22px;
+}
+.playerName {
+    float:left;
+    width:70px;
+}
+
+
+#leftcolumnwrap {
+width:165px;
+float:left;
+margin:0 auto;
+}
+
+#leftcolumn {
+background:#222;
+border-radius:10px;
+border:1px solid #000;
+margin:5px;
+min-height: 620px;
+padding-top: 10px;
+text-align: center;
+}
+
+#rightcolumnwrap {
+width:305px;
+float:left;
+margin:0 auto;
+}
+
+#rightcolumn {
+background:#222;
+border-radius:10px;
+border:1px solid #000;
+}
+
+table.rightTable {
+    border-spacing:2px;
+    border-collapse:separate;
+    width:100%;
+}
+table.rightTable td {
+    text-align:center;
+    width:50%;
+    padding-bottom:10px;
+}
+
+
+#footerwrap {
+width:1000px;
+clear:both;
+margin: 0px auto;
+}
+
+#footer {
+height:30px;
+background:#222;
+color:#fff;
+border-radius:10px;
+border:1px solid #000;
+margin:5px;
+}
+
+.infobar table td{
+    height: auto;
+    line-height: normal;
+}
+
+.infobar table {
+    margin: 15px 0px 5px 0px;
+
+}
+
+
+/*Nove styly*/
+
+.icon img {
+    margin-top: 5px;
+    width: 18px;
+    height: 18px;
+}
+
+.dt {
+    padding-right: 2px;
+}
+
+.module-desc {
+    width: 70%;
+    padding-left: 110px;
+}
+
+.whitebg {
+    background-color: white;
+}
+
+.greybg {
+    background: -webkit-linear-gradient(top, rgba(237,237,237,1) 0%,rgba(214,214,214,1) 50%,rgba(234,234,234,1) 100%); /* Chrome10+,Safari5.1+ */
+}
+
+
+h4 {
+    display: inline;
+}
+
+.links {
+    width: 100%;
+}
+
+.leftslot {
+    min-width: 400px;
+    position: relative;
+    float: left;
+    margin-bottom: 12px;
+}
+
+
+.rightslot {
+    width: 540px;
+    position: absolute;
+    right: 65px;
+    float: right;
+}
+
+.rightslot a {
+    color: #1de100;
+}
+
+tfoot tr td {
+    font-size: 16px;
+    color: #ffd700;
+    background-color: #333333;
+}
+
+#accordion {
+    display: none;
+}
+
+.textcontent {
+    padding: 15px;
+}
+
+#notbold {
+    font-size: 12px;
+}1îûKÖ      ^H0^H1A;·½^$‚~   #    :http://vipboxe.com/style/style.css necko:classified 1 strongly-framed 1 request-method GET request-Accept-Encoding gzip, deflate response-head HTTP/1.1 200 OK
+Server: nginx/1.10.3
+Date: Sun, 12 Jan 2020 16:23:27 GMT
+Content-Type: text/css
+Content-Length: 13935
+Last-Modified: Thu, 29 Nov 2018 18:53:03 GMT
+ETag: "366f-57bd2313d41c0"
+Accept-Ranges: bytes
+Vary: Accept-Encoding
+Front-End-Https: on
+ original-response-headers Server: nginx/1.10.3
+Date: Sun, 12 Jan 2020 16:23:27 GMT
+Content-Type: text/css
+Content-Length: 13935
+Connection: keep-alive
+Last-Modified: Thu, 29 Nov 2018 18:53:03 GMT
+ETag: "366f-57bd2313d41c0"
+Accept-Ranges: bytes
+Vary: Accept-Encoding
+Front-End-Https: on
+ ctid 5 eTLD1Access 1;0;557525674, uncompressed-len 0 net-response-time-onstart 782 net-response-time-onstop 786   6o

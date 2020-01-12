@@ -1,0 +1,1534 @@
+/*
+Unobtrusive JavaScript
+https://github.com/rails/rails/blob/master/actionview/app/assets/javascripts
+Released under the MIT license
+ */
+;
+
+(function() {
+  var context = this;
+
+  (function() {
+    (function() {
+      this.Rails = {
+        linkClickSelector: 'a[data-confirm], a[data-method], a[data-remote]:not([disabled]), a[data-disable-with], a[data-disable]',
+        buttonClickSelector: {
+          selector: 'button[data-remote]:not([form]), button[data-confirm]:not([form])',
+          exclude: 'form button'
+        },
+        inputChangeSelector: 'select[data-remote], input[data-remote], textarea[data-remote]',
+        formSubmitSelector: 'form',
+        formInputClickSelector: 'form input[type=submit], form input[type=image], form button[type=submit], form button:not([type]), input[type=submit][form], input[type=image][form], button[type=submit][form], button[form]:not([type])',
+        formDisableSelector: 'input[data-disable-with]:enabled, button[data-disable-with]:enabled, textarea[data-disable-with]:enabled, input[data-disable]:enabled, button[data-disable]:enabled, textarea[data-disable]:enabled',
+        formEnableSelector: 'input[data-disable-with]:disabled, button[data-disable-with]:disabled, textarea[data-disable-with]:disabled, input[data-disable]:disabled, button[data-disable]:disabled, textarea[data-disable]:disabled',
+        fileInputSelector: 'input[name][type=file]:not([disabled])',
+        linkDisableSelector: 'a[data-disable-with], a[data-disable]',
+        buttonDisableSelector: 'button[data-remote][data-disable-with], button[data-remote][data-disable]'
+      };
+
+    }).call(this);
+  }).call(context);
+
+  var Rails = context.Rails;
+
+  (function() {
+    (function() {
+      var nonce;
+
+      nonce = null;
+
+      Rails.loadCSPNonce = function() {
+        var ref;
+        return nonce = (ref = document.querySelector("meta[name=csp-nonce]")) != null ? ref.content : void 0;
+      };
+
+      Rails.cspNonce = function() {
+        return nonce != null ? nonce : Rails.loadCSPNonce();
+      };
+
+    }).call(this);
+    (function() {
+      var expando, m;
+
+      m = Element.prototype.matches || Element.prototype.matchesSelector || Element.prototype.mozMatchesSelector || Element.prototype.msMatchesSelector || Element.prototype.oMatchesSelector || Element.prototype.webkitMatchesSelector;
+
+      Rails.matches = function(element, selector) {
+        if (selector.exclude != null) {
+          return m.call(element, selector.selector) && !m.call(element, selector.exclude);
+        } else {
+          return m.call(element, selector);
+        }
+      };
+
+      expando = '_ujsData';
+
+      Rails.getData = function(element, key) {
+        var ref;
+        return (ref = element[expando]) != null ? ref[key] : void 0;
+      };
+
+      Rails.setData = function(element, key, value) {
+        if (element[expando] == null) {
+          element[expando] = {};
+        }
+        return element[expando][key] = value;
+      };
+
+      Rails.$ = function(selector) {
+        return Array.prototype.slice.call(document.querySelectorAll(selector));
+      };
+
+    }).call(this);
+    (function() {
+      var $, csrfParam, csrfToken;
+
+      $ = Rails.$;
+
+      csrfToken = Rails.csrfToken = function() {
+        var meta;
+        meta = document.querySelector('meta[name=csrf-token]');
+        return meta && meta.content;
+      };
+
+      csrfParam = Rails.csrfParam = function() {
+        var meta;
+        meta = document.querySelector('meta[name=csrf-param]');
+        return meta && meta.content;
+      };
+
+      Rails.CSRFProtection = function(xhr) {
+        var token;
+        token = csrfToken();
+        if (token != null) {
+          return xhr.setRequestHeader('X-CSRF-Token', token);
+        }
+      };
+
+      Rails.refreshCSRFTokens = function() {
+        var param, token;
+        token = csrfToken();
+        param = csrfParam();
+        if ((token != null) && (param != null)) {
+          return $('form input[name="' + param + '"]').forEach(function(input) {
+            return input.value = token;
+          });
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var CustomEvent, fire, matches, preventDefault;
+
+      matches = Rails.matches;
+
+      CustomEvent = window.CustomEvent;
+
+      if (typeof CustomEvent !== 'function') {
+        CustomEvent = function(event, params) {
+          var evt;
+          evt = document.createEvent('CustomEvent');
+          evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+          return evt;
+        };
+        CustomEvent.prototype = window.Event.prototype;
+        preventDefault = CustomEvent.prototype.preventDefault;
+        CustomEvent.prototype.preventDefault = function() {
+          var result;
+          result = preventDefault.call(this);
+          if (this.cancelable && !this.defaultPrevented) {
+            Object.defineProperty(this, 'defaultPrevented', {
+              get: function() {
+                return true;
+              }
+            });
+          }
+          return result;
+        };
+      }
+
+      fire = Rails.fire = function(obj, name, data) {
+        var event;
+        event = new CustomEvent(name, {
+          bubbles: true,
+          cancelable: true,
+          detail: data
+        });
+        obj.dispatchEvent(event);
+        return !event.defaultPrevented;
+      };
+
+      Rails.stopEverything = function(e) {
+        fire(e.target, 'ujs:everythingStopped');
+        e.preventDefault();
+        e.stopPropagation();
+        return e.stopImmediatePropagation();
+      };
+
+      Rails.delegate = function(element, selector, eventType, handler) {
+        return element.addEventListener(eventType, function(e) {
+          var target;
+          target = e.target;
+          while (!(!(target instanceof Element) || matches(target, selector))) {
+            target = target.parentNode;
+          }
+          if (target instanceof Element && handler.call(target, e) === false) {
+            e.preventDefault();
+            return e.stopPropagation();
+          }
+        });
+      };
+
+    }).call(this);
+    (function() {
+      var AcceptHeaders, CSRFProtection, createXHR, cspNonce, fire, prepareOptions, processResponse;
+
+      cspNonce = Rails.cspNonce, CSRFProtection = Rails.CSRFProtection, fire = Rails.fire;
+
+      AcceptHeaders = {
+        '*': '*/*',
+        text: 'text/plain',
+        html: 'text/html',
+        xml: 'application/xml, text/xml',
+        json: 'application/json, text/javascript',
+        script: 'text/javascript, application/javascript, application/ecmascript, application/x-ecmascript'
+      };
+
+      Rails.ajax = function(options) {
+        var xhr;
+        options = prepareOptions(options);
+        xhr = createXHR(options, function() {
+          var ref, response;
+          response = processResponse((ref = xhr.response) != null ? ref : xhr.responseText, xhr.getResponseHeader('Content-Type'));
+          if (Math.floor(xhr.status / 100) === 2) {
+            if (typeof options.success === "function") {
+              options.success(response, xhr.statusText, xhr);
+            }
+          } else {
+            if (typeof options.error === "function") {
+              options.error(response, xhr.statusText, xhr);
+            }
+          }
+          return typeof options.complete === "function" ? options.complete(xhr, xhr.statusText) : void 0;
+        });
+        if ((options.beforeSend != null) && !options.beforeSend(xhr, options)) {
+          return false;
+        }
+        if (xhr.readyState === XMLHttpRequest.OPENED) {
+          return xhr.send(options.data);
+        }
+      };
+
+      prepareOptions = function(options) {
+        options.url = options.url || location.href;
+        options.type = options.type.toUpperCase();
+        if (options.type === 'GET' && options.data) {
+          if (options.url.indexOf('?') < 0) {
+            options.url += '?' + options.data;
+          } else {
+            options.url += '&' + options.data;
+          }
+        }
+        if (AcceptHeaders[options.dataType] == null) {
+          options.dataType = '*';
+        }
+        options.accept = AcceptHeaders[options.dataType];
+        if (options.dataType !== '*') {
+          options.accept += ', */*; q=0.01';
+        }
+        return options;
+      };
+
+      createXHR = function(options, done) {
+        var xhr;
+        xhr = new XMLHttpRequest();
+        xhr.open(options.type, options.url, true);
+        xhr.setRequestHeader('Accept', options.accept);
+        if (typeof options.data === 'string') {
+          xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+        }
+        if (!options.crossDomain) {
+          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        }
+        CSRFProtection(xhr);
+        xhr.withCredentials = !!options.withCredentials;
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === XMLHttpRequest.DONE) {
+            return done(xhr);
+          }
+        };
+        return xhr;
+      };
+
+      processResponse = function(response, type) {
+        var parser, script;
+        if (typeof response === 'string' && typeof type === 'string') {
+          if (type.match(/\bjson\b/)) {
+            try {
+              response = JSON.parse(response);
+            } catch (error) {}
+          } else if (type.match(/\b(?:java|ecma)script\b/)) {
+            script = document.createElement('script');
+            script.setAttribute('nonce', cspNonce());
+            script.text = response;
+            document.head.appendChild(script).parentNode.removeChild(script);
+          } else if (type.match(/\b(xml|html|svg)\b/)) {
+            parser = new DOMParser();
+            type = type.replace(/;.+/, '');
+            try {
+              response = parser.parseFromString(response, type);
+            } catch (error) {}
+          }
+        }
+        return response;
+      };
+
+      Rails.href = function(element) {
+        return element.href;
+      };
+
+      Rails.isCrossDomain = function(url) {
+        var e, originAnchor, urlAnchor;
+        originAnchor = document.createElement('a');
+        originAnchor.href = location.href;
+        urlAnchor = document.createElement('a');
+        try {
+          urlAnchor.href = url;
+          return !(((!urlAnchor.protocol || urlAnchor.protocol === ':') && !urlAnchor.host) || (originAnchor.protocol + '//' + originAnchor.host === urlAnchor.protocol + '//' + urlAnchor.host));
+        } catch (error) {
+          e = error;
+          return true;
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var matches, toArray;
+
+      matches = Rails.matches;
+
+      toArray = function(e) {
+        return Array.prototype.slice.call(e);
+      };
+
+      Rails.serializeElement = function(element, additionalParam) {
+        var inputs, params;
+        inputs = [element];
+        if (matches(element, 'form')) {
+          inputs = toArray(element.elements);
+        }
+        params = [];
+        inputs.forEach(function(input) {
+          if (!input.name || input.disabled) {
+            return;
+          }
+          if (matches(input, 'select')) {
+            return toArray(input.options).forEach(function(option) {
+              if (option.selected) {
+                return params.push({
+                  name: input.name,
+                  value: option.value
+                });
+              }
+            });
+          } else if (input.checked || ['radio', 'checkbox', 'submit'].indexOf(input.type) === -1) {
+            return params.push({
+              name: input.name,
+              value: input.value
+            });
+          }
+        });
+        if (additionalParam) {
+          params.push(additionalParam);
+        }
+        return params.map(function(param) {
+          if (param.name != null) {
+            return (encodeURIComponent(param.name)) + "=" + (encodeURIComponent(param.value));
+          } else {
+            return param;
+          }
+        }).join('&');
+      };
+
+      Rails.formElements = function(form, selector) {
+        if (matches(form, 'form')) {
+          return toArray(form.elements).filter(function(el) {
+            return matches(el, selector);
+          });
+        } else {
+          return toArray(form.querySelectorAll(selector));
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var allowAction, fire, stopEverything;
+
+      fire = Rails.fire, stopEverything = Rails.stopEverything;
+
+      Rails.handleConfirm = function(e) {
+        if (!allowAction(this)) {
+          return stopEverything(e);
+        }
+      };
+
+      allowAction = function(element) {
+        var answer, callback, message;
+        message = element.getAttribute('data-confirm');
+        if (!message) {
+          return true;
+        }
+        answer = false;
+        if (fire(element, 'confirm')) {
+          try {
+            answer = confirm(message);
+          } catch (error) {}
+          callback = fire(element, 'confirm:complete', [answer]);
+        }
+        return answer && callback;
+      };
+
+    }).call(this);
+    (function() {
+      var disableFormElement, disableFormElements, disableLinkElement, enableFormElement, enableFormElements, enableLinkElement, formElements, getData, matches, setData, stopEverything;
+
+      matches = Rails.matches, getData = Rails.getData, setData = Rails.setData, stopEverything = Rails.stopEverything, formElements = Rails.formElements;
+
+      Rails.handleDisabledElement = function(e) {
+        var element;
+        element = this;
+        if (element.disabled) {
+          return stopEverything(e);
+        }
+      };
+
+      Rails.enableElement = function(e) {
+        var element;
+        element = e instanceof Event ? e.target : e;
+        if (matches(element, Rails.linkDisableSelector)) {
+          return enableLinkElement(element);
+        } else if (matches(element, Rails.buttonDisableSelector) || matches(element, Rails.formEnableSelector)) {
+          return enableFormElement(element);
+        } else if (matches(element, Rails.formSubmitSelector)) {
+          return enableFormElements(element);
+        }
+      };
+
+      Rails.disableElement = function(e) {
+        var element;
+        element = e instanceof Event ? e.target : e;
+        if (matches(element, Rails.linkDisableSelector)) {
+          return disableLinkElement(element);
+        } else if (matches(element, Rails.buttonDisableSelector) || matches(element, Rails.formDisableSelector)) {
+          return disableFormElement(element);
+        } else if (matches(element, Rails.formSubmitSelector)) {
+          return disableFormElements(element);
+        }
+      };
+
+      disableLinkElement = function(element) {
+        var replacement;
+        replacement = element.getAttribute('data-disable-with');
+        if (replacement != null) {
+          setData(element, 'ujs:enable-with', element.innerHTML);
+          element.innerHTML = replacement;
+        }
+        element.addEventListener('click', stopEverything);
+        return setData(element, 'ujs:disabled', true);
+      };
+
+      enableLinkElement = function(element) {
+        var originalText;
+        originalText = getData(element, 'ujs:enable-with');
+        if (originalText != null) {
+          element.innerHTML = originalText;
+          setData(element, 'ujs:enable-with', null);
+        }
+        element.removeEventListener('click', stopEverything);
+        return setData(element, 'ujs:disabled', null);
+      };
+
+      disableFormElements = function(form) {
+        return formElements(form, Rails.formDisableSelector).forEach(disableFormElement);
+      };
+
+      disableFormElement = function(element) {
+        var replacement;
+        replacement = element.getAttribute('data-disable-with');
+        if (replacement != null) {
+          if (matches(element, 'button')) {
+            setData(element, 'ujs:enable-with', element.innerHTML);
+            element.innerHTML = replacement;
+          } else {
+            setData(element, 'ujs:enable-with', element.value);
+            element.value = replacement;
+          }
+        }
+        element.disabled = true;
+        return setData(element, 'ujs:disabled', true);
+      };
+
+      enableFormElements = function(form) {
+        return formElements(form, Rails.formEnableSelector).forEach(enableFormElement);
+      };
+
+      enableFormElement = function(element) {
+        var originalText;
+        originalText = getData(element, 'ujs:enable-with');
+        if (originalText != null) {
+          if (matches(element, 'button')) {
+            element.innerHTML = originalText;
+          } else {
+            element.value = originalText;
+          }
+          setData(element, 'ujs:enable-with', null);
+        }
+        element.disabled = false;
+        return setData(element, 'ujs:disabled', null);
+      };
+
+    }).call(this);
+    (function() {
+      var stopEverything;
+
+      stopEverything = Rails.stopEverything;
+
+      Rails.handleMethod = function(e) {
+        var csrfParam, csrfToken, form, formContent, href, link, method;
+        link = this;
+        method = link.getAttribute('data-method');
+        if (!method) {
+          return;
+        }
+        href = Rails.href(link);
+        csrfToken = Rails.csrfToken();
+        csrfParam = Rails.csrfParam();
+        form = document.createElement('form');
+        formContent = "<input name='_method' value='" + method + "' type='hidden' />";
+        if ((csrfParam != null) && (csrfToken != null) && !Rails.isCrossDomain(href)) {
+          formContent += "<input name='" + csrfParam + "' value='" + csrfToken + "' type='hidden' />";
+        }
+        formContent += '<input type="submit" />';
+        form.method = 'post';
+        form.action = href;
+        form.target = link.target;
+        form.innerHTML = formContent;
+        form.style.display = 'none';
+        document.body.appendChild(form);
+        form.querySelector('[type="submit"]').click();
+        return stopEverything(e);
+      };
+
+    }).call(this);
+    (function() {
+      var ajax, fire, getData, isCrossDomain, isRemote, matches, serializeElement, setData, stopEverything,
+        slice = [].slice;
+
+      matches = Rails.matches, getData = Rails.getData, setData = Rails.setData, fire = Rails.fire, stopEverything = Rails.stopEverything, ajax = Rails.ajax, isCrossDomain = Rails.isCrossDomain, serializeElement = Rails.serializeElement;
+
+      isRemote = function(element) {
+        var value;
+        value = element.getAttribute('data-remote');
+        return (value != null) && value !== 'false';
+      };
+
+      Rails.handleRemote = function(e) {
+        var button, data, dataType, element, method, url, withCredentials;
+        element = this;
+        if (!isRemote(element)) {
+          return true;
+        }
+        if (!fire(element, 'ajax:before')) {
+          fire(element, 'ajax:stopped');
+          return false;
+        }
+        withCredentials = element.getAttribute('data-with-credentials');
+        dataType = element.getAttribute('data-type') || 'script';
+        if (matches(element, Rails.formSubmitSelector)) {
+          button = getData(element, 'ujs:submit-button');
+          method = getData(element, 'ujs:submit-button-formmethod') || element.method;
+          url = getData(element, 'ujs:submit-button-formaction') || element.getAttribute('action') || location.href;
+          if (method.toUpperCase() === 'GET') {
+            url = url.replace(/\?.*$/, '');
+          }
+          if (element.enctype === 'multipart/form-data') {
+            data = new FormData(element);
+            if (button != null) {
+              data.append(button.name, button.value);
+            }
+          } else {
+            data = serializeElement(element, button);
+          }
+          setData(element, 'ujs:submit-button', null);
+          setData(element, 'ujs:submit-button-formmethod', null);
+          setData(element, 'ujs:submit-button-formaction', null);
+        } else if (matches(element, Rails.buttonClickSelector) || matches(element, Rails.inputChangeSelector)) {
+          method = element.getAttribute('data-method');
+          url = element.getAttribute('data-url');
+          data = serializeElement(element, element.getAttribute('data-params'));
+        } else {
+          method = element.getAttribute('data-method');
+          url = Rails.href(element);
+          data = element.getAttribute('data-params');
+        }
+        ajax({
+          type: method || 'GET',
+          url: url,
+          data: data,
+          dataType: dataType,
+          beforeSend: function(xhr, options) {
+            if (fire(element, 'ajax:beforeSend', [xhr, options])) {
+              return fire(element, 'ajax:send', [xhr]);
+            } else {
+              fire(element, 'ajax:stopped');
+              return false;
+            }
+          },
+          success: function() {
+            var args;
+            args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+            return fire(element, 'ajax:success', args);
+          },
+          error: function() {
+            var args;
+            args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+            return fire(element, 'ajax:error', args);
+          },
+          complete: function() {
+            var args;
+            args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+            return fire(element, 'ajax:complete', args);
+          },
+          crossDomain: isCrossDomain(url),
+          withCredentials: (withCredentials != null) && withCredentials !== 'false'
+        });
+        return stopEverything(e);
+      };
+
+      Rails.formSubmitButtonClick = function(e) {
+        var button, form;
+        button = this;
+        form = button.form;
+        if (!form) {
+          return;
+        }
+        if (button.name) {
+          setData(form, 'ujs:submit-button', {
+            name: button.name,
+            value: button.value
+          });
+        }
+        setData(form, 'ujs:formnovalidate-button', button.formNoValidate);
+        setData(form, 'ujs:submit-button-formaction', button.getAttribute('formaction'));
+        return setData(form, 'ujs:submit-button-formmethod', button.getAttribute('formmethod'));
+      };
+
+      Rails.preventInsignificantClick = function(e) {
+        var data, insignificantMetaClick, link, metaClick, method, nonPrimaryMouseClick;
+        link = this;
+        method = (link.getAttribute('data-method') || 'GET').toUpperCase();
+        data = link.getAttribute('data-params');
+        metaClick = e.metaKey || e.ctrlKey;
+        insignificantMetaClick = metaClick && method === 'GET' && !data;
+        nonPrimaryMouseClick = (e.button != null) && e.button !== 0;
+        if (nonPrimaryMouseClick || insignificantMetaClick) {
+          return e.stopImmediatePropagation();
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var $, CSRFProtection, delegate, disableElement, enableElement, fire, formSubmitButtonClick, getData, handleConfirm, handleDisabledElement, handleMethod, handleRemote, loadCSPNonce, preventInsignificantClick, refreshCSRFTokens;
+
+      fire = Rails.fire, delegate = Rails.delegate, getData = Rails.getData, $ = Rails.$, refreshCSRFTokens = Rails.refreshCSRFTokens, CSRFProtection = Rails.CSRFProtection, loadCSPNonce = Rails.loadCSPNonce, enableElement = Rails.enableElement, disableElement = Rails.disableElement, handleDisabledElement = Rails.handleDisabledElement, handleConfirm = Rails.handleConfirm, preventInsignificantClick = Rails.preventInsignificantClick, handleRemote = Rails.handleRemote, formSubmitButtonClick = Rails.formSubmitButtonClick, handleMethod = Rails.handleMethod;
+
+      if ((typeof jQuery !== "undefined" && jQuery !== null) && (jQuery.ajax != null)) {
+        if (jQuery.rails) {
+          throw new Error('If you load both jquery_ujs and rails-ujs, use rails-ujs only.');
+        }
+        jQuery.rails = Rails;
+        jQuery.ajaxPrefilter(function(options, originalOptions, xhr) {
+          if (!options.crossDomain) {
+            return CSRFProtection(xhr);
+          }
+        });
+      }
+
+      Rails.start = function() {
+        if (window._rails_loaded) {
+          throw new Error('rails-ujs has already been loaded!');
+        }
+        window.addEventListener('pageshow', function() {
+          $(Rails.formEnableSelector).forEach(function(el) {
+            if (getData(el, 'ujs:disabled')) {
+              return enableElement(el);
+            }
+          });
+          return $(Rails.linkDisableSelector).forEach(function(el) {
+            if (getData(el, 'ujs:disabled')) {
+              return enableElement(el);
+            }
+          });
+        });
+        delegate(document, Rails.linkDisableSelector, 'ajax:complete', enableElement);
+        delegate(document, Rails.linkDisableSelector, 'ajax:stopped', enableElement);
+        delegate(document, Rails.buttonDisableSelector, 'ajax:complete', enableElement);
+        delegate(document, Rails.buttonDisableSelector, 'ajax:stopped', enableElement);
+        delegate(document, Rails.linkClickSelector, 'click', preventInsignificantClick);
+        delegate(document, Rails.linkClickSelector, 'click', handleDisabledElement);
+        delegate(document, Rails.linkClickSelector, 'click', handleConfirm);
+        delegate(document, Rails.linkClickSelector, 'click', disableElement);
+        delegate(document, Rails.linkClickSelector, 'click', handleRemote);
+        delegate(document, Rails.linkClickSelector, 'click', handleMethod);
+        delegate(document, Rails.buttonClickSelector, 'click', preventInsignificantClick);
+        delegate(document, Rails.buttonClickSelector, 'click', handleDisabledElement);
+        delegate(document, Rails.buttonClickSelector, 'click', handleConfirm);
+        delegate(document, Rails.buttonClickSelector, 'click', disableElement);
+        delegate(document, Rails.buttonClickSelector, 'click', handleRemote);
+        delegate(document, Rails.inputChangeSelector, 'change', handleDisabledElement);
+        delegate(document, Rails.inputChangeSelector, 'change', handleConfirm);
+        delegate(document, Rails.inputChangeSelector, 'change', handleRemote);
+        delegate(document, Rails.formSubmitSelector, 'submit', handleDisabledElement);
+        delegate(document, Rails.formSubmitSelector, 'submit', handleConfirm);
+        delegate(document, Rails.formSubmitSelector, 'submit', handleRemote);
+        delegate(document, Rails.formSubmitSelector, 'submit', function(e) {
+          return setTimeout((function() {
+            return disableElement(e);
+          }), 13);
+        });
+        delegate(document, Rails.formSubmitSelector, 'ajax:send', disableElement);
+        delegate(document, Rails.formSubmitSelector, 'ajax:complete', enableElement);
+        delegate(document, Rails.formInputClickSelector, 'click', preventInsignificantClick);
+        delegate(document, Rails.formInputClickSelector, 'click', handleDisabledElement);
+        delegate(document, Rails.formInputClickSelector, 'click', handleConfirm);
+        delegate(document, Rails.formInputClickSelector, 'click', formSubmitButtonClick);
+        document.addEventListener('DOMContentLoaded', refreshCSRFTokens);
+        document.addEventListener('DOMContentLoaded', loadCSPNonce);
+        return window._rails_loaded = true;
+      };
+
+      if (window.Rails === Rails && fire(document, 'rails:attachBindings')) {
+        Rails.start();
+      }
+
+    }).call(this);
+  }).call(this);
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = Rails;
+  } else if (typeof define === "function" && define.amd) {
+    define(Rails);
+  }
+}).call(this);
+        20200107212822¸      context   Rails   .this#   linkClickSelector'   buttonClickSelector'   inputChangeSelector%   formSubmitSelector-   formInputClickSelector'   formDisableSelector%   formEnableSelector#   fileInputSelector'   linkDisableSelector+   buttonDisableSelector   selector   excludeÍ   a[data-confirm], a[data-method], a[data-remote]:not([disabled]), a[data-disable-with], a[data-disable]ƒ   button[data-remote]:not([form]), button[data-confirm]:not([form])   form button}   select[data-remote], input[data-remote], textarea[data-remote]	   form•  form input[type=submit], form input[type=image], form button[type=submit], form button:not([type]), input[type=submit][form], input[type=image][form], button[type=submit][form], button[form]:not([type])‡  input[data-disable-with]:enabled, button[data-disable-with]:enabled, textarea[data-disable-with]:enabled, input[data-disable]:enabled, button[data-disable]:enabled, textarea[data-disable]:enabled“  input[data-disable-with]:disabled, button[data-disable-with]:disabled, textarea[data-disable-with]:disabled, input[data-disable]:disabled, button[data-disable]:disabled, textarea[data-disable]:disabledM   input[name][type=file]:not([disabled])K   a[data-disable-with], a[data-disable]“   button[data-remote][data-disable-with], button[data-remote][data-disable]	   call   nonce%   Rails.loadCSPNonce   Rails.cspNonce   loadCSPNonce   cspNonce   expando   m   Rails.matches   Rails.getData   Rails.setData   Rails.$   Element   prototype   matches   matchesSelector%   mozMatchesSelector#   msMatchesSelector!   oMatchesSelector+   webkitMatchesSelector   _ujsData   getData   setData   $   csrfParam   csrfToken   Rails.csrfToken   Rails.csrfParam)   Rails.CSRFProtection/   Rails.refreshCSRFTokens   token   CSRFProtection#   refreshCSRFTokens   CustomEvent	   fire   preventDefaultI   CustomEvent.prototype.preventDefault   Rails.fire)   Rails.stopEverything   Rails.delegate   handler   window   function   Event   stopEverything   delegate   AcceptHeaders   createXHR   prepareOptions   processResponse   *	   text	   html   xml	   json   script   Rails.ajax   options   xhr	   done   Rails.href'   Rails.isCrossDomain   */*   text/plain   text/html3   application/xml, text/xmlC   application/json, text/javascript³   text/javascript, application/javascript, application/ecmascript, application/x-ecmascript	   ajax	   href   isCrossDomain   toArray-   Rails.serializeElement   params   input%   Rails.formElements!   serializeElement   formElements   allowAction'   Rails.handleConfirm   handleConfirm%   disableFormElement'   disableFormElements%   disableLinkElement#   enableFormElement%   enableFormElements#   enableLinkElement7   Rails.handleDisabledElement'   Rails.enableElement)   Rails.disableElement+   handleDisabledElement   enableElement   disableElement%   Rails.handleMethod   handleMethod   isRemote   slice%   Rails.handleRemote   element7   Rails.formSubmitButtonClick?   Rails.preventInsignificantClick   handleRemote+   formSubmitButtonClick3   preventInsignificantClick   Rails.start   e   jQuery   undefined   rails   Error}   If you load both jquery_ujs and rails-ujs, use rails-ujs only.   ajaxPrefilter   start   document)   rails:attachBindings   module   object   exports   define   amd   obj	   name	   data   event   bubbles   cancelable   detail   dispatchEvent!   defaultPrevented   Rails.start/<   _rails_loadedE   rails-ujs has already been loaded!!   addEventListener   pageshow   ajax:complete   ajax:stopped   click   change   submit   ajax:send!   DOMContentLoaded   eventType!   Rails.delegate/<   param3   Rails.refreshCSRFTokens/<#   form input[name="   "]   forEach	   meta   querySelector+   meta[name=csrf-token]   content+   meta[name=csrf-param]   Array!   querySelectorAll   ref)   meta[name=csp-nonce]   Rails.start/</<                          k      k    k  /*
+Unobtrusive JavaScript
+https://github.com/rails/rails/blob/master/actionview/app/assets/javascripts
+Released under the MIT license
+ */
+;
+
+(function() {
+  var context = this;
+
+  (function() {
+    (function() {
+      this.Rails = {
+        linkClickSelector: 'a[data-confirm], a[data-method], a[data-remote]:not([disabled]), a[data-disable-with], a[data-disable]',
+        buttonClickSelector: {
+          selector: 'button[data-remote]:not([form]), button[data-confirm]:not([form])',
+          exclude: 'form button'
+        },
+        inputChangeSelector: 'select[data-remote], input[data-remote], textarea[data-remote]',
+        formSubmitSelector: 'form',
+        formInputClickSelector: 'form input[type=submit], form input[type=image], form button[type=submit], form button:not([type]), input[type=submit][form], input[type=image][form], button[type=submit][form], button[form]:not([type])',
+        formDisableSelector: 'input[data-disable-with]:enabled, button[data-disable-with]:enabled, textarea[data-disable-with]:enabled, input[data-disable]:enabled, button[data-disable]:enabled, textarea[data-disable]:enabled',
+        formEnableSelector: 'input[data-disable-with]:disabled, button[data-disable-with]:disabled, textarea[data-disable-with]:disabled, input[data-disable]:disabled, button[data-disable]:disabled, textarea[data-disable]:disabled',
+        fileInputSelector: 'input[name][type=file]:not([disabled])',
+        linkDisableSelector: 'a[data-disable-with], a[data-disable]',
+        buttonDisableSelector: 'button[data-remote][data-disable-with], button[data-remote][data-disable]'
+      };
+
+    }).call(this);
+  }).call(context);
+
+  var Rails = context.Rails;
+
+  (function() {
+    (function() {
+      var nonce;
+
+      nonce = null;
+
+      Rails.loadCSPNonce = function() {
+        var ref;
+        return nonce = (ref = document.querySelector("meta[name=csp-nonce]")) != null ? ref.content : void 0;
+      };
+
+      Rails.cspNonce = function() {
+        return nonce != null ? nonce : Rails.loadCSPNonce();
+      };
+
+    }).call(this);
+    (function() {
+      var expando, m;
+
+      m = Element.prototype.matches || Element.prototype.matchesSelector || Element.prototype.mozMatchesSelector || Element.prototype.msMatchesSelector || Element.prototype.oMatchesSelector || Element.prototype.webkitMatchesSelector;
+
+      Rails.matches = function(element, selector) {
+        if (selector.exclude != null) {
+          return m.call(element, selector.selector) && !m.call(element, selector.exclude);
+        } else {
+          return m.call(element, selector);
+        }
+      };
+
+      expando = '_ujsData';
+
+      Rails.getData = function(element, key) {
+        var ref;
+        return (ref = element[expando]) != null ? ref[key] : void 0;
+      };
+
+      Rails.setData = function(element, key, value) {
+        if (element[expando] == null) {
+          element[expando] = {};
+        }
+        return element[expando][key] = value;
+      };
+
+      Rails.$ = function(selector) {
+        return Array.prototype.slice.call(document.querySelectorAll(selector));
+      };
+
+    }).call(this);
+    (function() {
+      var $, csrfParam, csrfToken;
+
+      $ = Rails.$;
+
+      csrfToken = Rails.csrfToken = function() {
+        var meta;
+        meta = document.querySelector('meta[name=csrf-token]');
+        return meta && meta.content;
+      };
+
+      csrfParam = Rails.csrfParam = function() {
+        var meta;
+        meta = document.querySelector('meta[name=csrf-param]');
+        return meta && meta.content;
+      };
+
+      Rails.CSRFProtection = function(xhr) {
+        var token;
+        token = csrfToken();
+        if (token != null) {
+          return xhr.setRequestHeader('X-CSRF-Token', token);
+        }
+      };
+
+      Rails.refreshCSRFTokens = function() {
+        var param, token;
+        token = csrfToken();
+        param = csrfParam();
+        if ((token != null) && (param != null)) {
+          return $('form input[name="' + param + '"]').forEach(function(input) {
+            return input.value = token;
+          });
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var CustomEvent, fire, matches, preventDefault;
+
+      matches = Rails.matches;
+
+      CustomEvent = window.CustomEvent;
+
+      if (typeof CustomEvent !== 'function') {
+        CustomEvent = function(event, params) {
+          var evt;
+          evt = document.createEvent('CustomEvent');
+          evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+          return evt;
+        };
+        CustomEvent.prototype = window.Event.prototype;
+        preventDefault = CustomEvent.prototype.preventDefault;
+        CustomEvent.prototype.preventDefault = function() {
+          var result;
+          result = preventDefault.call(this);
+          if (this.cancelable && !this.defaultPrevented) {
+            Object.defineProperty(this, 'defaultPrevented', {
+              get: function() {
+                return true;
+              }
+            });
+          }
+          return result;
+        };
+      }
+
+      fire = Rails.fire = function(obj, name, data) {
+        var event;
+        event = new CustomEvent(name, {
+          bubbles: true,
+          cancelable: true,
+          detail: data
+        });
+        obj.dispatchEvent(event);
+        return !event.defaultPrevented;
+      };
+
+      Rails.stopEverything = function(e) {
+        fire(e.target, 'ujs:everythingStopped');
+        e.preventDefault();
+        e.stopPropagation();
+        return e.stopImmediatePropagation();
+      };
+
+      Rails.delegate = function(element, selector, eventType, handler) {
+        return element.addEventListener(eventType, function(e) {
+          var target;
+          target = e.target;
+          while (!(!(target instanceof Element) || matches(target, selector))) {
+            target = target.parentNode;
+          }
+          if (target instanceof Element && handler.call(target, e) === false) {
+            e.preventDefault();
+            return e.stopPropagation();
+          }
+        });
+      };
+
+    }).call(this);
+    (function() {
+      var AcceptHeaders, CSRFProtection, createXHR, cspNonce, fire, prepareOptions, processResponse;
+
+      cspNonce = Rails.cspNonce, CSRFProtection = Rails.CSRFProtection, fire = Rails.fire;
+
+      AcceptHeaders = {
+        '*': '*/*',
+        text: 'text/plain',
+        html: 'text/html',
+        xml: 'application/xml, text/xml',
+        json: 'application/json, text/javascript',
+        script: 'text/javascript, application/javascript, application/ecmascript, application/x-ecmascript'
+      };
+
+      Rails.ajax = function(options) {
+        var xhr;
+        options = prepareOptions(options);
+        xhr = createXHR(options, function() {
+          var ref, response;
+          response = processResponse((ref = xhr.response) != null ? ref : xhr.responseText, xhr.getResponseHeader('Content-Type'));
+          if (Math.floor(xhr.status / 100) === 2) {
+            if (typeof options.success === "function") {
+              options.success(response, xhr.statusText, xhr);
+            }
+          } else {
+            if (typeof options.error === "function") {
+              options.error(response, xhr.statusText, xhr);
+            }
+          }
+          return typeof options.complete === "function" ? options.complete(xhr, xhr.statusText) : void 0;
+        });
+        if ((options.beforeSend != null) && !options.beforeSend(xhr, options)) {
+          return false;
+        }
+        if (xhr.readyState === XMLHttpRequest.OPENED) {
+          return xhr.send(options.data);
+        }
+      };
+
+      prepareOptions = function(options) {
+        options.url = options.url || location.href;
+        options.type = options.type.toUpperCase();
+        if (options.type === 'GET' && options.data) {
+          if (options.url.indexOf('?') < 0) {
+            options.url += '?' + options.data;
+          } else {
+            options.url += '&' + options.data;
+          }
+        }
+        if (AcceptHeaders[options.dataType] == null) {
+          options.dataType = '*';
+        }
+        options.accept = AcceptHeaders[options.dataType];
+        if (options.dataType !== '*') {
+          options.accept += ', */*; q=0.01';
+        }
+        return options;
+      };
+
+      createXHR = function(options, done) {
+        var xhr;
+        xhr = new XMLHttpRequest();
+        xhr.open(options.type, options.url, true);
+        xhr.setRequestHeader('Accept', options.accept);
+        if (typeof options.data === 'string') {
+          xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+        }
+        if (!options.crossDomain) {
+          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        }
+        CSRFProtection(xhr);
+        xhr.withCredentials = !!options.withCredentials;
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === XMLHttpRequest.DONE) {
+            return done(xhr);
+          }
+        };
+        return xhr;
+      };
+
+      processResponse = function(response, type) {
+        var parser, script;
+        if (typeof response === 'string' && typeof type === 'string') {
+          if (type.match(/\bjson\b/)) {
+            try {
+              response = JSON.parse(response);
+            } catch (error) {}
+          } else if (type.match(/\b(?:java|ecma)script\b/)) {
+            script = document.createElement('script');
+            script.setAttribute('nonce', cspNonce());
+            script.text = response;
+            document.head.appendChild(script).parentNode.removeChild(script);
+          } else if (type.match(/\b(xml|html|svg)\b/)) {
+            parser = new DOMParser();
+            type = type.replace(/;.+/, '');
+            try {
+              response = parser.parseFromString(response, type);
+            } catch (error) {}
+          }
+        }
+        return response;
+      };
+
+      Rails.href = function(element) {
+        return element.href;
+      };
+
+      Rails.isCrossDomain = function(url) {
+        var e, originAnchor, urlAnchor;
+        originAnchor = document.createElement('a');
+        originAnchor.href = location.href;
+        urlAnchor = document.createElement('a');
+        try {
+          urlAnchor.href = url;
+          return !(((!urlAnchor.protocol || urlAnchor.protocol === ':') && !urlAnchor.host) || (originAnchor.protocol + '//' + originAnchor.host === urlAnchor.protocol + '//' + urlAnchor.host));
+        } catch (error) {
+          e = error;
+          return true;
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var matches, toArray;
+
+      matches = Rails.matches;
+
+      toArray = function(e) {
+        return Array.prototype.slice.call(e);
+      };
+
+      Rails.serializeElement = function(element, additionalParam) {
+        var inputs, params;
+        inputs = [element];
+        if (matches(element, 'form')) {
+          inputs = toArray(element.elements);
+        }
+        params = [];
+        inputs.forEach(function(input) {
+          if (!input.name || input.disabled) {
+            return;
+          }
+          if (matches(input, 'select')) {
+            return toArray(input.options).forEach(function(option) {
+              if (option.selected) {
+                return params.push({
+                  name: input.name,
+                  value: option.value
+                });
+              }
+            });
+          } else if (input.checked || ['radio', 'checkbox', 'submit'].indexOf(input.type) === -1) {
+            return params.push({
+              name: input.name,
+              value: input.value
+            });
+          }
+        });
+        if (additionalParam) {
+          params.push(additionalParam);
+        }
+        return params.map(function(param) {
+          if (param.name != null) {
+            return (encodeURIComponent(param.name)) + "=" + (encodeURIComponent(param.value));
+          } else {
+            return param;
+          }
+        }).join('&');
+      };
+
+      Rails.formElements = function(form, selector) {
+        if (matches(form, 'form')) {
+          return toArray(form.elements).filter(function(el) {
+            return matches(el, selector);
+          });
+        } else {
+          return toArray(form.querySelectorAll(selector));
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var allowAction, fire, stopEverything;
+
+      fire = Rails.fire, stopEverything = Rails.stopEverything;
+
+      Rails.handleConfirm = function(e) {
+        if (!allowAction(this)) {
+          return stopEverything(e);
+        }
+      };
+
+      allowAction = function(element) {
+        var answer, callback, message;
+        message = element.getAttribute('data-confirm');
+        if (!message) {
+          return true;
+        }
+        answer = false;
+        if (fire(element, 'confirm')) {
+          try {
+            answer = confirm(message);
+          } catch (error) {}
+          callback = fire(element, 'confirm:complete', [answer]);
+        }
+        return answer && callback;
+      };
+
+    }).call(this);
+    (function() {
+      var disableFormElement, disableFormElements, disableLinkElement, enableFormElement, enableFormElements, enableLinkElement, formElements, getData, matches, setData, stopEverything;
+
+      matches = Rails.matches, getData = Rails.getData, setData = Rails.setData, stopEverything = Rails.stopEverything, formElements = Rails.formElements;
+
+      Rails.handleDisabledElement = function(e) {
+        var element;
+        element = this;
+        if (element.disabled) {
+          return stopEverything(e);
+        }
+      };
+
+      Rails.enableElement = function(e) {
+        var element;
+        element = e instanceof Event ? e.target : e;
+        if (matches(element, Rails.linkDisableSelector)) {
+          return enableLinkElement(element);
+        } else if (matches(element, Rails.buttonDisableSelector) || matches(element, Rails.formEnableSelector)) {
+          return enableFormElement(element);
+        } else if (matches(element, Rails.formSubmitSelector)) {
+          return enableFormElements(element);
+        }
+      };
+
+      Rails.disableElement = function(e) {
+        var element;
+        element = e instanceof Event ? e.target : e;
+        if (matches(element, Rails.linkDisableSelector)) {
+          return disableLinkElement(element);
+        } else if (matches(element, Rails.buttonDisableSelector) || matches(element, Rails.formDisableSelector)) {
+          return disableFormElement(element);
+        } else if (matches(element, Rails.formSubmitSelector)) {
+          return disableFormElements(element);
+        }
+      };
+
+      disableLinkElement = function(element) {
+        var replacement;
+        replacement = element.getAttribute('data-disable-with');
+        if (replacement != null) {
+          setData(element, 'ujs:enable-with', element.innerHTML);
+          element.innerHTML = replacement;
+        }
+        element.addEventListener('click', stopEverything);
+        return setData(element, 'ujs:disabled', true);
+      };
+
+      enableLinkElement = function(element) {
+        var originalText;
+        originalText = getData(element, 'ujs:enable-with');
+        if (originalText != null) {
+          element.innerHTML = originalText;
+          setData(element, 'ujs:enable-with', null);
+        }
+        element.removeEventListener('click', stopEverything);
+        return setData(element, 'ujs:disabled', null);
+      };
+
+      disableFormElements = function(form) {
+        return formElements(form, Rails.formDisableSelector).forEach(disableFormElement);
+      };
+
+      disableFormElement = function(element) {
+        var replacement;
+        replacement = element.getAttribute('data-disable-with');
+        if (replacement != null) {
+          if (matches(element, 'button')) {
+            setData(element, 'ujs:enable-with', element.innerHTML);
+            element.innerHTML = replacement;
+          } else {
+            setData(element, 'ujs:enable-with', element.value);
+            element.value = replacement;
+          }
+        }
+        element.disabled = true;
+        return setData(element, 'ujs:disabled', true);
+      };
+
+      enableFormElements = function(form) {
+        return formElements(form, Rails.formEnableSelector).forEach(enableFormElement);
+      };
+
+      enableFormElement = function(element) {
+        var originalText;
+        originalText = getData(element, 'ujs:enable-with');
+        if (originalText != null) {
+          if (matches(element, 'button')) {
+            element.innerHTML = originalText;
+          } else {
+            element.value = originalText;
+          }
+          setData(element, 'ujs:enable-with', null);
+        }
+        element.disabled = false;
+        return setData(element, 'ujs:disabled', null);
+      };
+
+    }).call(this);
+    (function() {
+      var stopEverything;
+
+      stopEverything = Rails.stopEverything;
+
+      Rails.handleMethod = function(e) {
+        var csrfParam, csrfToken, form, formContent, href, link, method;
+        link = this;
+        method = link.getAttribute('data-method');
+        if (!method) {
+          return;
+        }
+        href = Rails.href(link);
+        csrfToken = Rails.csrfToken();
+        csrfParam = Rails.csrfParam();
+        form = document.createElement('form');
+        formContent = "<input name='_method' value='" + method + "' type='hidden' />";
+        if ((csrfParam != null) && (csrfToken != null) && !Rails.isCrossDomain(href)) {
+          formContent += "<input name='" + csrfParam + "' value='" + csrfToken + "' type='hidden' />";
+        }
+        formContent += '<input type="submit" />';
+        form.method = 'post';
+        form.action = href;
+        form.target = link.target;
+        form.innerHTML = formContent;
+        form.style.display = 'none';
+        document.body.appendChild(form);
+        form.querySelector('[type="submit"]').click();
+        return stopEverything(e);
+      };
+
+    }).call(this);
+    (function() {
+      var ajax, fire, getData, isCrossDomain, isRemote, matches, serializeElement, setData, stopEverything,
+        slice = [].slice;
+
+      matches = Rails.matches, getData = Rails.getData, setData = Rails.setData, fire = Rails.fire, stopEverything = Rails.stopEverything, ajax = Rails.ajax, isCrossDomain = Rails.isCrossDomain, serializeElement = Rails.serializeElement;
+
+      isRemote = function(element) {
+        var value;
+        value = element.getAttribute('data-remote');
+        return (value != null) && value !== 'false';
+      };
+
+      Rails.handleRemote = function(e) {
+        var button, data, dataType, element, method, url, withCredentials;
+        element = this;
+        if (!isRemote(element)) {
+          return true;
+        }
+        if (!fire(element, 'ajax:before')) {
+          fire(element, 'ajax:stopped');
+          return false;
+        }
+        withCredentials = element.getAttribute('data-with-credentials');
+        dataType = element.getAttribute('data-type') || 'script';
+        if (matches(element, Rails.formSubmitSelector)) {
+          button = getData(element, 'ujs:submit-button');
+          method = getData(element, 'ujs:submit-button-formmethod') || element.method;
+          url = getData(element, 'ujs:submit-button-formaction') || element.getAttribute('action') || location.href;
+          if (method.toUpperCase() === 'GET') {
+            url = url.replace(/\?.*$/, '');
+          }
+          if (element.enctype === 'multipart/form-data') {
+            data = new FormData(element);
+            if (button != null) {
+              data.append(button.name, button.value);
+            }
+          } else {
+            data = serializeElement(element, button);
+          }
+          setData(element, 'ujs:submit-button', null);
+          setData(element, 'ujs:submit-button-formmethod', null);
+          setData(element, 'ujs:submit-button-formaction', null);
+        } else if (matches(element, Rails.buttonClickSelector) || matches(element, Rails.inputChangeSelector)) {
+          method = element.getAttribute('data-method');
+          url = element.getAttribute('data-url');
+          data = serializeElement(element, element.getAttribute('data-params'));
+        } else {
+          method = element.getAttribute('data-method');
+          url = Rails.href(element);
+          data = element.getAttribute('data-params');
+        }
+        ajax({
+          type: method || 'GET',
+          url: url,
+          data: data,
+          dataType: dataType,
+          beforeSend: function(xhr, options) {
+            if (fire(element, 'ajax:beforeSend', [xhr, options])) {
+              return fire(element, 'ajax:send', [xhr]);
+            } else {
+              fire(element, 'ajax:stopped');
+              return false;
+            }
+          },
+          success: function() {
+            var args;
+            args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+            return fire(element, 'ajax:success', args);
+          },
+          error: function() {
+            var args;
+            args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+            return fire(element, 'ajax:error', args);
+          },
+          complete: function() {
+            var args;
+            args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
+            return fire(element, 'ajax:complete', args);
+          },
+          crossDomain: isCrossDomain(url),
+          withCredentials: (withCredentials != null) && withCredentials !== 'false'
+        });
+        return stopEverything(e);
+      };
+
+      Rails.formSubmitButtonClick = function(e) {
+        var button, form;
+        button = this;
+        form = button.form;
+        if (!form) {
+          return;
+        }
+        if (button.name) {
+          setData(form, 'ujs:submit-button', {
+            name: button.name,
+            value: button.value
+          });
+        }
+        setData(form, 'ujs:formnovalidate-button', button.formNoValidate);
+        setData(form, 'ujs:submit-button-formaction', button.getAttribute('formaction'));
+        return setData(form, 'ujs:submit-button-formmethod', button.getAttribute('formmethod'));
+      };
+
+      Rails.preventInsignificantClick = function(e) {
+        var data, insignificantMetaClick, link, metaClick, method, nonPrimaryMouseClick;
+        link = this;
+        method = (link.getAttribute('data-method') || 'GET').toUpperCase();
+        data = link.getAttribute('data-params');
+        metaClick = e.metaKey || e.ctrlKey;
+        insignificantMetaClick = metaClick && method === 'GET' && !data;
+        nonPrimaryMouseClick = (e.button != null) && e.button !== 0;
+        if (nonPrimaryMouseClick || insignificantMetaClick) {
+          return e.stopImmediatePropagation();
+        }
+      };
+
+    }).call(this);
+    (function() {
+      var $, CSRFProtection, delegate, disableElement, enableElement, fire, formSubmitButtonClick, getData, handleConfirm, handleDisabledElement, handleMethod, handleRemote, loadCSPNonce, preventInsignificantClick, refreshCSRFTokens;
+
+      fire = Rails.fire, delegate = Rails.delegate, getData = Rails.getData, $ = Rails.$, refreshCSRFTokens = Rails.refreshCSRFTokens, CSRFProtection = Rails.CSRFProtection, loadCSPNonce = Rails.loadCSPNonce, enableElement = Rails.enableElement, disableElement = Rails.disableElement, handleDisabledElement = Rails.handleDisabledElement, handleConfirm = Rails.handleConfirm, preventInsignificantClick = Rails.preventInsignificantClick, handleRemote = Rails.handleRemote, formSubmitButtonClick = Rails.formSubmitButtonClick, handleMethod = Rails.handleMethod;
+
+      if ((typeof jQuery !== "undefined" && jQuery !== null) && (jQuery.ajax != null)) {
+        if (jQuery.rails) {
+          throw new Error('If you load both jquery_ujs and rails-ujs, use rails-ujs only.');
+        }
+        jQuery.rails = Rails;
+        jQuery.ajaxPrefilter(function(options, originalOptions, xhr) {
+          if (!options.crossDomain) {
+            return CSRFProtection(xhr);
+          }
+        });
+      }
+
+      Rails.start = function() {
+        if (window._rails_loaded) {
+          throw new Error('rails-ujs has already been loaded!');
+        }
+        window.addEventListener('pageshow', function() {
+          $(Rails.formEnableSelector).forEach(function(el) {
+            if (getData(el, 'ujs:disabled')) {
+              return enableElement(el);
+            }
+          });
+          return $(Rails.linkDisableSelector).forEach(function(el) {
+            if (getData(el, 'ujs:disabled')) {
+              return enableElement(el);
+            }
+          });
+        });
+        delegate(document, Rails.linkDisableSelector, 'ajax:complete', enableElement);
+        delegate(document, Rails.linkDisableSelector, 'ajax:stopped', enableElement);
+        delegate(document, Rails.buttonDisableSelector, 'ajax:complete', enableElement);
+        delegate(document, Rails.buttonDisableSelector, 'ajax:stopped', enableElement);
+        delegate(document, Rails.linkClickSelector, 'click', preventInsignificantClick);
+        delegate(document, Rails.linkClickSelector, 'click', handleDisabledElement);
+        delegate(document, Rails.linkClickSelector, 'click', handleConfirm);
+        delegate(document, Rails.linkClickSelector, 'click', disableElement);
+        delegate(document, Rails.linkClickSelector, 'click', handleRemote);
+        delegate(document, Rails.linkClickSelector, 'click', handleMethod);
+        delegate(document, Rails.buttonClickSelector, 'click', preventInsignificantClick);
+        delegate(document, Rails.buttonClickSelector, 'click', handleDisabledElement);
+        delegate(document, Rails.buttonClickSelector, 'click', handleConfirm);
+        delegate(document, Rails.buttonClickSelector, 'click', disableElement);
+        delegate(document, Rails.buttonClickSelector, 'click', handleRemote);
+        delegate(document, Rails.inputChangeSelector, 'change', handleDisabledElement);
+        delegate(document, Rails.inputChangeSelector, 'change', handleConfirm);
+        delegate(document, Rails.inputChangeSelector, 'change', handleRemote);
+        delegate(document, Rails.formSubmitSelector, 'submit', handleDisabledElement);
+        delegate(document, Rails.formSubmitSelector, 'submit', handleConfirm);
+        delegate(document, Rails.formSubmitSelector, 'submit', handleRemote);
+        delegate(document, Rails.formSubmitSelector, 'submit', function(e) {
+          return setTimeout((function() {
+            return disableElement(e);
+          }), 13);
+        });
+        delegate(document, Rails.formSubmitSelector, 'ajax:send', disableElement);
+        delegate(document, Rails.formSubmitSelector, 'ajax:complete', enableElement);
+        delegate(document, Rails.formInputClickSelector, 'click', preventInsignificantClick);
+        delegate(document, Rails.formInputClickSelector, 'click', handleDisabledElement);
+        delegate(document, Rails.formInputClickSelector, 'click', handleConfirm);
+        delegate(document, Rails.formInputClickSelector, 'click', formSubmitButtonClick);
+        document.addEventListener('DOMContentLoaded', refreshCSRFTokens);
+        document.addEventListener('DOMContentLoaded', loadCSPNonce);
+        return window._rails_loaded = true;
+      };
+
+      if (window.Rails === Rails && fire(document, 'rails:attachBindings')) {
+        Rails.start();
+      }
+
+    }).call(this);
+  }).call(this);
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = Rails;
+  } else if (typeof define === "function" && define.amd) {
+    define(Rails);
+  }
+}).call(this);
+  v   http://localhost:3000/assets/rails-ujs.self-43e81c501e7e36871a34b4b950451cc7cb047af4e846ec742539e64724582452.js?body=1   !«!€!«!ÿÿÿÿ            Œ!«!!«!       C       	                –   k     k       !«!Œ!«!ÿÿÿÿ                      Œ!«!!«!        C                       ½   f  µ   f       !«!Œ!«!ÿÿÿÿ                Œ!«!!«!        C                       Ï   U  Ç   U   
+    !«!Œ!«!ÿÿÿÿ                Œ!«!!«!    
+   !«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!   ‹!«!!«!	   ‹!«!!«!
+   ‹!«!!«!   ‹!«!!«!   ‹!«!    Œ!«!!«!       !«!   ‹!«!!«!   ‹!«!    š˜;ø                                                   	      
+                     =                                   ¹W   QV   [   =    ]   [   =   ]   =   ]   ]   =   ]   =	   ]
+   =   ]   =   ]   =   ]   =   ]   =   ]   =   ]   6   Q™VHh`ÉPHÊPHUH
+ÊPH
+ÏXHÊPHÊPHÊPHÊPHÊPHÊPHÊPHĞXH`  Ê5š˜;ø                                           ¹W   Q‚   ¸    
+V   l Q™VHh`ÌXL`TH` Ê5Œ!«!!«!        C    "                   ¡  Ûj  ™  Ûj       !«!Œ!«!ÿÿÿÿ                Œ!«!!«!        C    #                     ³     «          !«!Œ!«!ÿÿÿÿ                Œ!«!!«!          c   (   #                     ú         !«!Œ!«!ÿÿÿÿ   µ             š˜;ø   ‹   ¯   ¶   ±   E                                      š    ¸   
+=   : W   @   æ   V   5      æ   >(æ   ‰   ™PPHh`ÑH`æH?ÌPHa        ÿÿÿÿ   Ê5Œ!«!!«!    	      b  ¯  ø  §  ø  -          ÿÿÿÿ       Ê5š˜;ø         (                                       @‰   Qˆ  ‚   6    Qˆ  ‚   6   Q™PX&Hh`_(Hh`ĞX-Hh`ĞX1H` Ê5Œ!«!!«!        C    2                                  !«!Œ!«!ÿÿÿÿ       !             Œ!«!!«!    	   "   b @	  '
+  8	  '
+  7          ÿÿÿÿ       Ê5Œ!«!!«!    	   #   b e
+  Ó
+  ]
+  Ó
+  A          ÿÿÿÿ       Ê5Œ!«!!«!    	   $   b ô
+  ”  ì
+  ”  F          ÿÿÿÿ       Ê5Œ!«!!«!       %   c  M                     ¯    §         !«!Œ!«!ÿÿÿÿ               š˜;ø   ³   '   z      ‹   ´   -                                 
+     š    5   5   ¸   
+š   ¸   
+T  : l ™PHh`åH+`Kÿÿÿò`SHa       ÿÿÿÿ   Ê5š˜;ø   &   '   (   )   *   +   ,   -   .   /   0   1   è   3                                     š    5   5   D‚   æ   Qš    5   5   Dh   æ	   Qš    5   5   DN   æ   Qš    5   5   D4   æ   Qš    5   5   D   æ   Qš    5   5   æ   ‰   Qˆ  ‚   6   Q=   ‰   Qˆ  ‚   6	   Qˆ  ‚   6
+   Qˆ  ‚   6   Q™PX5Hh`ÿÿŞX7Hh`ĞX?Hh`ËXAHh`ĞXFHh`ĞXMHh`ĞXQH` Ê5Œ!«!!«!        C    R                     6  ö  .  ö       !«!Œ!«!ÿÿÿÿ   1   2   3             Œ!«!!«!       4   c   W   ,                 Ÿ  "  —  "       !«!Œ!«!ÿÿÿÿ   ®             š˜;ø   ‹   ¯   °   ±   8                                      š    ¸   
+=   : W   QV   E   æ   QV   5   æ   ™PPHh`ÑH`ÈPHh`İPHa      ÿÿÿÿ   Ê5Œ!«!!«!       5   c   ]   ,                 Q  Ô  I  Ô       !«!Œ!«!ÿÿÿÿ   ®             š˜;ø   ‹   ¯   ²   ±   8                                      š    ¸   
+=   : W   QV   E   æ   QV   5   æ   ™PPHh`ÑH`ÈPHh`İPHa      ÿÿÿÿ   Ê5Œ!«!!«!    	   6   b ü     ô     c   %       ÿÿÿÿ       Ê5Œ!«!!«!       7   c    k   (                 Ë  î  Ã  î       !«!Œ!«!ÿÿÿÿ   ©   8            Œ!«!!«!    	   ª   b   Ú  •  Ú  p   G       ÿÿÿÿ       Ê5š˜;ø   «   ¬   ­   s   ,                                  	 ˆ  :  ‰   Qˆ  :  W   Qˆ   @E   æ   QV   @æ	   3   æ
+   ˆ  =    V   =   : ¸   
+‚   : æ   ™PPHh`N`ÉPHh`N`ÈPHh`çPH
+h`ÖH`ÏH&`[tHf Ê5š˜;ø   1   3   2   9   :   [   ,                                    ˆ  5    ‰   Qˆ  ‚   6   ‰   Qˆ  ‚   6   ‰   Qˆ  ‚   6   Qˆ  ‚   6   Q™PXUHh`ĞXWHh`ÕX]Hh`ÕXcHh`ĞXkHh`ĞXvH`   Ê5Œ!«!!«!        C    w                       ¦  	  ¦       !«!Œ!«!ÿÿÿÿ   ;   <   (   =             Œ!«!!«!    	   ;   B ã  ´  Û  ´            ÿÿÿÿ       Ê5Œ!«!!«!    	   >   b  d  ±  \  ±  ‡   7      ÿÿÿÿ         B  A  r  9  r  Œ          ÿÿÿÿ       Ê5Ê5Œ!«!!«!       ?   c  •   "                 Ş  Ö  Ö  Ö       !«!Œ!«!ÿÿÿÿ   ’   “   ”   •           Œ!«!!«!       !«!–   ‹!«!!«!—   ‹!«!!«!˜   ‹!«!    š˜;ø   –   —   ˜   ™   š   L   7                                  ˆ   AT [   C]    C]   T ]   ,  R W   QT  ¸   
+V   ç QV   5    ™PPHh`ÎPH
+VH
+VH
+ÌX€  —H`ÈX€  œHh`ÎH`THh`HÊPHa        ÿÿÿÿ   Ê5Œ!«!!«!    	   @   b ş  ¢  ö  ¢      %       ÿÿÿÿ       Ê5Œ!«!!«!       A   c   §                     Ä    ¼         !«!Œ!«!ÿÿÿÿ   |      §   B           Œ!«!!«!    	   ¨   b )  ”  !  ”  ¨   ;       ÿÿÿÿ       Ê5š˜;ø                                            T  ¸    
+T ‚   : ™PHh`ÒH`[€  ³Ha   Ê5š˜;ø
+   (   C   ;   D   E   '   =   <   F   G   À   [                                    ˆ  5    ‰   Qš   5   ‰   Qˆ   '=   IY   æ	   ‚   ‰   Qˆ   š   5   5   6   Qˆ   5   5   ‰   Qˆ   5   ‚   6   Qæ   ˆ  ‚   6   ‰   Qˆ  ‚   6   Qˆ  ‚   6	   Q™PXzHh`ĞX|Hh`ĞX~H
+h`ÖPHh`ËX€  …Hh`ÚPHh`ÕPHh`ÚX€  •Hh`ÕX€   Hh`ĞX€  §Hh`ĞX€  µH`   Ê5Œ!«!!«!        C    ¶                    Á  #)  ¹  #)       !«!Œ!«!ÿÿÿÿ   H   9   I      <   J   K            Œ!«!!«!       !«!L   ‹!«!!«!M   ‹!«!!«!N   ‹!«!!«!O   ‹!«!!«!P   ‹!«!!«!Q   ‹!«!    Œ!«!!«!    	   R   b Ù  ¤  Ñ  ¤  Ä         ÿÿÿÿ       S    T      B  J  ¼  B  ¼  Ç   )       ÿÿÿÿ       Ê5Ê5Œ!«!!«!    	   J   B Æ  ?   ¾  ?   İ          ÿÿÿÿ       Ê5Œ!«!!«!    	   I   B \   ,#  T   ,#  ñ         ÿÿÿÿ       U    T      B  Ÿ"  #  —"  #  ş   )       ÿÿÿÿ       Ê5Ê5Œ!«!!«!    	   K   B O#  &  G#  &            ÿÿÿÿ       Ê5Œ!«!!«!    	   V   b ¼&  ì&  ´&  ì&           ÿÿÿÿ       Ê5Œ!«!!«!    	   W   b '  )  '  )  !  $       ÿÿÿÿ       Ê5š˜;ø      9   <   X   L   Y   M   Z   N   [   O   \   P   ]   Q   ^   _   `   È   o                                  	 ˆ  5    ‰   Qˆ  5   ‰   Qˆ  5   W   Q[   =   ]   =   ]   =   ]   =	   ]
+   =   ]   =   ]   ‰   Qˆ  ‚   6   Q‚   ‰   Q‚   ‰   Q‚   ‰   Qˆ  ‚   6   Qˆ  ‚   6   Q™PPPHh`ĞHĞH'ÏPPHh`UHÊPHÊPHÊPHÊPHÊPHĞPPPHh`ĞX€  İHh`ËX€  ñHh`ËX€ Hh`ËX€ Hh`ĞPPPPHh`ĞX€ /H`  Ê5Œ!«!!«!        C    0                    >)  ó/  6)  ó/       !«!Œ!«!ÿÿÿÿ   (   a             Œ!«!!«!    	   a   B ˜)  Ó)  )  Ó)  5         ÿÿÿÿ       Ê5Œ!«!!«!    	   b   b ı)  º.  õ)  º.  9  '      ÿÿÿÿ       c      B æ*  a-  Ş*  a-  @        ÿÿÿÿ       d      B £+  s,  ›+  s,  E  :       ÿÿÿÿ       Ê5Ê5   B ×-  ¦.  Ï-  ¦.  W  "       ÿÿÿÿ       Ê5Ê5Œ!«!!«!    	   e   b à.  ë/  Ø.  ë/  `  #      ÿÿÿÿ             B O/  ‹/  G/  ‹/  b  7       ÿÿÿÿ       Ê5Ê5š˜;ø   (   f   g   <   +                                    ˆ  5    ‰   Q‚   ‰   Qˆ  ‚   6   Qˆ  ‚   6   Q™PPPHh`ĞPPHh`ËPPPPHh`ĞX€ `Hh`ĞX€ jH` Ê5Œ!«!!«!        C    k                    0  Ø2  0  Ø2       !«!Œ!«!ÿÿÿÿ   h   <   F             Œ!«!!«!    	   i   b ¦0  1  0  1  p  $      ÿÿÿÿ       Ê5Œ!«!!«!    	   h   B "1  Ğ2  1  Ğ2  v         ÿÿÿÿ       Ê5š˜;ø   <   F   j   <   '                                    ˆ  5    ‰   Qˆ  5   ‰   Qˆ  ‚   6   Q‚   ‰   Q™PPPHh`ĞHĞPPHh`ĞX€ vHh`ËX€ †H`   Ê5Œ!«!!«!        C    ‡                    ó2  †A  ë2  †A    
+   !«!Œ!«!ÿÿÿÿ   k   l   m   n   o   p   g   /   (   0   F             Œ!«!!«!    	   q   b {4  5  s4  5  Œ  ,      ÿÿÿÿ       Ê5Œ!«!!«!    	   r   b *5  7  "5  7  ”  $       ÿÿÿÿ       Ê5Œ!«!!«!    	   s   b )7  9  !7  9     %       ÿÿÿÿ       Ê5Œ!«!!«!    	   m   B *9  £:  "9  £:  ¬  #       ÿÿÿÿ       Ê5Œ!«!!«!    	   p   B È:  5<  À:  5<  ·  "       ÿÿÿÿ       Ê5Œ!«!!«!    	   l   B \<  Æ<  T<  Æ<  Â  $       ÿÿÿÿ       Ê5Œ!«!!«!    	   k   B ì<  ?  ä<  ?  Æ  #       ÿÿÿÿ       Ê5Œ!«!!«!    	   o   B )?  ‘?  !?  ‘?  Ö  #       ÿÿÿÿ       Ê5Œ!«!!«!    	   n   B ¶?  ~A  ®?  ~A  Ú  "       ÿÿÿÿ       Ê5š˜;ø   (   /   0   F   g   t   u   v   Ã   t                                    ˆ  5    ‰ 
+  Qˆ  5   ‰ 	  Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  ‚   6   Qˆ  ‚   6   Qˆ  ‚   6   Q‚   ‰   Q‚   ‰   Q‚   ‰   Q‚   ‰   Q‚   ‰   Q‚	   ‰   Q™PPPHh`ĞHĞHĞHĞH'ĞPPHh`ĞX€ ”Hh`ĞX€  Hh`ĞX€ ¬Hh`ËX€ ·Hh`ËX€ ÂHh`ËPPPPHh`ËX€ ÖHh`ËPPPPHh`ËX€ éH`   Ê5Œ!«!!«!        C    ê                    ¡A  F  ™A  F       !«!Œ!«!ÿÿÿÿ   F             Œ!«!!«!    	   w   b B  ıE  
+B  ıE  ï  #      ÿÿÿÿ       Ê5š˜;ø   F   x   !                                       ˆ  5    ‰   Qˆ  ‚   6   Q™PPPHh`ĞPPHh`ĞX€ 	H`   Ê5Œ!«!!«!        C    
+                     F  ØX  F  ØX       !«!Œ!«!ÿÿÿÿ
+   ^   <   /   `   y   (   f   0   F   z             Œ!«!!«!    	   y   B ´G  DH  ¬G  DH           ÿÿÿÿ       Ê5Œ!«!!«!    	   {   b jH  T  bH  T    #      ÿÿÿÿ       |      B P  Q  P  Q  B         ÿÿÿÿ       Ê5   B  -Q  ÕQ  %Q  ÕQ  J        ÿÿÿÿ       Ê5   B  ğQ  –R  èQ  –R  O        ÿÿÿÿ       Ê5   B  ´R  ]S  ¬R  ]S  T        ÿÿÿÿ       Ê5Ê5Œ!«!!«!    	   }   b BT  tV  :T  tV  _  ,      ÿÿÿÿ       Ê5Œ!«!!«!    	   ~   b §V  ĞX  ŸV  ĞX  q  0      ÿÿÿÿ       Ê5š˜;ø   z   (   /   0   <   F   ^   `   f      €      Ì   S                                    Z    5    ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰ 	  Qˆ  5   ‰   Qˆ  5   ‰ 
+  Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Q‚   ‰   Qˆ  ‚   6	   Qˆ  ‚   6
+   Qˆ  ‚   6   Q™PPHh`ĞPPHh`ĞHĞHĞHĞHĞH'ĞHĞH%ĞPPHh`ËX€ Hh`ĞX€ _Hh`ĞX€ qHh`ĞX€ ~H`   Ê5Œ!«!!«!        C                       óX  Êj  ëX  Êj       !«!Œ!«!ÿÿÿÿ   1   9   G   v   u   <   €   /   j   t   x            :            Œ!«!!«!       B 2]  ·]  *]  ·]  ‰  %       ÿÿÿÿ       Ê5Œ!«!!«!       ‚   c                        ß]  Tj  ×]  Tj       !«!Œ!«!ÿÿÿÿ               Œ!«!!«!       ›   c    ”  4                  ‡^  ı_  ^  ı_       !«!Œ!«!ÿÿÿÿ               Œ!«!!«!    	   ·   b Â^  9_  º^  9_  •  6       ÿÿÿÿ       Ê5Œ!«!!«!    	   ·   b z_  ñ_  r_  ñ_  š  >       ÿÿÿÿ       Ê5š˜;ø   	   ­      G   (                                    ˆ   ˆ  5    : ¸   
+‚   ç Qˆ   ˆ  5   : ¸   
+‚   : ™PH
+h`ĞH`ÏH`\€ šH
+h`ĞH`ÏH`[€ ŸHa  Ê5Œ!«!!«!    	   ›   b g  ‚g  g  ‚g  µ  G      ÿÿÿÿ       ƒ      B  ;g  qg  3g  qg  ¶  %       ÿÿÿÿ       Ê5Ê5š˜;ø   C   œ   ‡         Ÿ   ‹          ¡         ¢         £      ¤   ¥      ¦   [  <                             º     · š    5      æ   š   A=   ,  R pæ   š    ¸   
+=   ‚   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =	   ˆ   ç Qˆ   š   ˆ  5
+   =   ˆ   ç Qˆ   š   ˆ  5
+   =	   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ 
+  ç Qˆ   š   ˆ  5   =   ˆ 	  ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ 
+  ç Qˆ   š   ˆ  5   =   ˆ 	  ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ 
+  ç Qˆ   š   ˆ  5   =   ˆ 	  ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ 
+  ç Qˆ   š   ˆ  5   =   ˆ 	  ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ‚   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ   ç Qˆ   š   ˆ  5   =   ˆ 
+  ç Qˆ   š   ˆ  5   =   ˆ 	  ç Qˆ   š   ˆ  5   =   ˆ   ç Qš   ¸   
+=   ˆ   ç Qš   ¸   
+=   ˆ   ç Qš    C6   ™PHh`ÔPH
+h`ÏH`ÉPPHh`ÖH`\€  Hh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`\€ ºHh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ßH`THh`ÖH	`THh`ÖH	`THh`ËPHa  Ê5š˜;ø   <   G   /   1   :   9      u   v   t   j         €   x   „   …   ^   †   ‡   ˆ   ‰   Š   C      ‹   Œ   ë  „                             B     4 ˆ  5    W   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5	   ‰ 
+  Qˆ  5
+   ‰ 	  Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qˆ  5   ‰   Qš   '=   IE)   æ#   Qš   @IE   æ&   Qš   5   @æ)   [   æ*   š   5      æ-   š   A=   ,  R pæ/   š   ˆ  6   Qš   ¸   
+‚   ç Qæ5   ˆ  ‚   6   Qš   5   ˆ  HE   æ<   QV   š   =   : æ>      æ?   ˆ  ¸   
+ç  QæB   ™PPPHh`ÏHĞHĞHĞHĞH-ĞH'ĞH#ĞH%ĞH'ĞH5ĞH%ĞH=ĞH#ĞH5ĞPPHh`ÿUHh`ÔPH
+h`ÏH`ÉPPHh`ĞPHh`ÑH`ÉX€ Hh`ĞX€ ÅH
+h`êH`ÒPHh`ÌH`ÉPPPH`  Ê5š˜;ø      ã   ˜                                  ¹W   Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚   ¸    
+V   l Q‚	   ¸    
+V   l Q‚
+   ¸    
+V   l Q‚   ¸    
+V   l Q™VHh`ÌX1L`THh`ÌXQL`THh`ÌXvL`THh`ÌX€  µL`THh`ÌX€ /L`THh`ÌX€ jL`THh`ÌX€ †L`THh`ÌX€ éL`THh`ÌX€ 	L`THh`ÌX€ ~L`THh`ÌX€ ÉL`TH`   Ê5š˜;ø                     D   ‘   Ù   J                                  ¹W  QV  W   Q‚   ¸    
+V   l QV   5   ‰   Q‚   ¸    
+V  l Qš   '=   HE   æ
+   Qš   5   æ      æ   š   ˆ   6   QM   æ   š   '=   HE   æ   Qš   5   æ      æ   š      ˆ   ç Qæ   ™VHh`ÉXHh`ÌXL`\ Hh`ÏX"Hh`ÌX€ ÊL`TPHh`ğPHh`ÚPHh`ğPHh`ÏH`ÉPP`  Ê5š˜;ø                                             ‚   ¸    
+ºl Q™XXHh`ÌX€ ÑI`T`  5}º_j      ^tP^tPA>“_ü§Ğ   w    :http://localhost:3000/assets/rails-ujs.self-43e81c501e7e36871a34b4b950451cc7cb047af4e846ec742539e64724582452.js?body=1 necko:classified 1 strongly-framed 1 request-method GET response-head HTTP/1.1 200 OK
+Content-Type: application/javascript
+ETag: "43e81c501e7e36871a34b4b950451cc7cb047af4e846ec742539e64724582452"
+Content-Length: 27549
+X-Request-Id: 4ddf93cd-f1c1-42ce-b584-305e45d0e648
+X-Runtime: 0.026212
+Cache-Control: public, max-age=31536000
+ original-response-headers Content-Type: application/javascript
+Cache-Control: public, max-age=31536000
+ETag: "43e81c501e7e36871a34b4b950451cc7cb047af4e846ec742539e64724582452"
+X-Request-Id: 95bfe5df-f698-44f7-a229-7817b0362ebc
+X-Runtime: 0.039356
+Content-Length: 27549
+ ctid 2 uncompressed-len 0 net-response-time-onstart 72 net-response-time-onstop 73 alt-data 1;27549,javascript/moz-bytecode-20200107212822 alt-data-from-child 1  ß

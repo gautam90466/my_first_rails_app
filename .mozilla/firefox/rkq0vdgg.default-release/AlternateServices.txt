@@ -1,0 +1,4 @@
+http:supergoodtvlive.com:80:.:	0	18273	http:supergoodtvlive.com:80:supergoodtvlive.com:443::n:1578846395:h2:y:1578835724:n::http://vipboxing.top|n:n:
+http:www.supergoodtvlive.com:80:.:	0	18273	http:www.supergoodtvlive.com:80:www.supergoodtvlive.com:443::n:1578846412:h2:y:1578835724:n::http://vipboxing.top|n:n:
+http:ufpcdn.com:80:.:	0	18273	http:ufpcdn.com:80:ufpcdn.com:443::n:1578846369:h2:y:1578835724:n::http://vipboxing.top|n:n:
+http:crrepo.com:80:.:	0	18273	http:crrepo.com:80:crrepo.com:443::n:1578846370:h2:y:1578835724:n::http://vipboxing.top|n:n:
